@@ -31,4 +31,25 @@ class ValidateExpenseUseCaseTest {
         assertTrue(result.errors.isEmpty())
         assertEquals(1250L, result.amountMinor)
     }
+
+    @Test
+    fun rejectsMoreThanTwoFractionalDigits() {
+        val result = useCase(amountText = "12.345", categoryId = 1)
+        assertEquals(ExpenseValidationError.InvalidAmount, result.errors.single())
+        assertEquals(null, result.amountMinor)
+    }
+
+    @Test
+    fun rejectsAmountTooLargeForMinorUnits() {
+        val result = useCase(amountText = "999999999999999999999999999.99", categoryId = 1)
+        assertEquals(ExpenseValidationError.InvalidAmount, result.errors.single())
+        assertEquals(null, result.amountMinor)
+    }
+
+    @Test
+    fun acceptsPositiveAmountWithSurroundingWhitespace() {
+        val result = useCase(amountText = " 12.50 ", categoryId = 1)
+        assertTrue(result.errors.isEmpty())
+        assertEquals(1250L, result.amountMinor)
+    }
 }

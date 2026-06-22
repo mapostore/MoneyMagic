@@ -1,7 +1,6 @@
 package com.indiewalkabout.moneymagic.domain.usecase
 
 import java.math.BigDecimal
-import java.math.RoundingMode
 
 data class ExpenseValidationResult(
     val amountMinor: Long?,
@@ -31,13 +30,19 @@ class ValidateExpenseUseCase {
         amountText: String,
         errors: MutableList<ExpenseValidationError>,
     ): Long? {
-        if (amountText.isBlank()) {
+        val normalizedAmountText = amountText.trim().replace(',', '.')
+        if (normalizedAmountText.isBlank()) {
             errors += ExpenseValidationError.EmptyAmount
             return null
         }
 
-        val amount = amountText.replace(',', '.').toBigDecimalOrNull()
+        val amount = normalizedAmountText.toBigDecimalOrNull()
         if (amount == null) {
+            errors += ExpenseValidationError.InvalidAmount
+            return null
+        }
+
+        if (amount.scale() > 2) {
             errors += ExpenseValidationError.InvalidAmount
             return null
         }
@@ -47,9 +52,11 @@ class ValidateExpenseUseCase {
             return null
         }
 
-        return amount
-            .movePointRight(2)
-            .setScale(0, RoundingMode.HALF_UP)
-            .toLong()
+        return try {
+            amount.movePointRight(2).longValueExact()
+        } catch (_: ArithmeticException) {
+            errors += ExpenseValidationError.InvalidAmount
+            null
+        }
     }
 }
