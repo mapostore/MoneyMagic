@@ -1,8 +1,9 @@
 package com.indiewalkabout.moneymagic.data.local
 
 import androidx.room.Dao
+import androidx.room.Insert
+import androidx.room.OnConflictStrategy
 import androidx.room.Query
-import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -16,7 +17,7 @@ interface CategoryDao {
     )
     fun observeCategories(includeArchived: Boolean = false): Flow<List<CategoryEntity>>
 
-    @Upsert
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(category: CategoryEntity): Long
 
     @Query("UPDATE categories SET archived = 1 WHERE id = :categoryId")
