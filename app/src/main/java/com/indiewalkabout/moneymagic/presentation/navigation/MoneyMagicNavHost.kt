@@ -1,5 +1,6 @@
 package com.indiewalkabout.moneymagic.presentation.navigation
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.NavigationBar
@@ -7,12 +8,9 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.platform.testTag
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
@@ -26,8 +24,13 @@ import kotlinx.serialization.Serializable
 @Composable
 fun MoneyMagicNavHost(modifier: Modifier = Modifier) {
     val backStack = rememberNavBackStack(DashboardRoute)
-    var selectedDestination by remember { mutableStateOf<MainDestination>(MainDestination.Dashboard) }
     val destinations = remember { MainDestination.entries }
+    val currentRoute = backStack.last()
+    val selectedDestination = destinations.firstOrNull { it.route == currentRoute }
+
+    BackHandler(enabled = backStack.size == 1) {
+        // Keep the current top-level route visible instead of exiting the app shell.
+    }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -38,20 +41,13 @@ fun MoneyMagicNavHost(modifier: Modifier = Modifier) {
                     NavigationBarItem(
                         selected = selected,
                         onClick = {
-                            selectedDestination = destination
                             backStack.clear()
                             backStack.add(destination.route)
                         },
+                        modifier = Modifier.testTag(destination.testTag),
                         icon = {},
                         label = {
-                            Text(
-                                text = destination.label,
-                                modifier = if (selected) {
-                                    Modifier.clearAndSetSemantics {}
-                                } else {
-                                    Modifier
-                                },
-                            )
+                            Text(text = destination.label)
                         },
                         alwaysShowLabel = true,
                     )
@@ -62,7 +58,11 @@ fun MoneyMagicNavHost(modifier: Modifier = Modifier) {
         NavDisplay(
             backStack = backStack,
             modifier = Modifier.padding(innerPadding),
-            onBack = {},
+            onBack = {
+                if (backStack.size > 1) {
+                    backStack.removeAt(backStack.lastIndex)
+                }
+            },
             entryProvider = entryProvider {
                 entry<DashboardRoute> { DashboardScreen() }
                 entry<ExpensesRoute> { ExpensesScreen() }
@@ -76,23 +76,24 @@ fun MoneyMagicNavHost(modifier: Modifier = Modifier) {
 private enum class MainDestination(
     val label: String,
     val route: MoneyMagicRoute,
+    val testTag: String,
 ) {
-    Dashboard("Dashboard", DashboardRoute),
-    Expenses("Expenses", ExpensesRoute),
-    Budgets("Budgets", BudgetsRoute),
-    Settings("Settings", SettingsRoute),
+    Dashboard("Dashboard", DashboardRoute, "bottom_nav_dashboard"),
+    Expenses("Expenses", ExpensesRoute, "bottom_nav_expenses"),
+    Budgets("Budgets", BudgetsRoute, "bottom_nav_budgets"),
+    Settings("Settings", SettingsRoute, "bottom_nav_settings"),
 }
 
-private sealed interface MoneyMagicRoute : NavKey
+internal sealed interface MoneyMagicRoute : NavKey
 
 @Serializable
-private data object DashboardRoute : MoneyMagicRoute
+internal data object DashboardRoute : MoneyMagicRoute
 
 @Serializable
-private data object ExpensesRoute : MoneyMagicRoute
+internal data object ExpensesRoute : MoneyMagicRoute
 
 @Serializable
-private data object BudgetsRoute : MoneyMagicRoute
+internal data object BudgetsRoute : MoneyMagicRoute
 
 @Serializable
-private data object SettingsRoute : MoneyMagicRoute
+internal data object SettingsRoute : MoneyMagicRoute
