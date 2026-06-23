@@ -3,7 +3,9 @@ package com.indiewalkabout.moneymagic.presentation.expenses
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -11,7 +13,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
 @Composable
-fun ExpensesScreen(modifier: Modifier = Modifier) {
+fun ExpensesScreen(
+    onAddExpenseClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -22,6 +27,12 @@ fun ExpensesScreen(modifier: Modifier = Modifier) {
             text = "Expense history",
             style = MaterialTheme.typography.headlineMedium,
         )
+        Button(
+            onClick = onAddExpenseClick,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text("Add expense")
+        }
         Text(
             text = "Filter by period",
             style = MaterialTheme.typography.titleMedium,

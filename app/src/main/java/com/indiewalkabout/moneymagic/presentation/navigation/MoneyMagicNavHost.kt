@@ -17,6 +17,7 @@ import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
 import com.indiewalkabout.moneymagic.presentation.budgets.BudgetsScreen
 import com.indiewalkabout.moneymagic.presentation.dashboard.DashboardScreen
+import com.indiewalkabout.moneymagic.presentation.expenses.AddExpenseScreen
 import com.indiewalkabout.moneymagic.presentation.expenses.ExpensesScreen
 import com.indiewalkabout.moneymagic.presentation.settings.SettingsScreen
 import kotlinx.serialization.Serializable
@@ -64,8 +65,21 @@ fun MoneyMagicNavHost(modifier: Modifier = Modifier) {
                 }
             },
             entryProvider = entryProvider {
-                entry<DashboardRoute> { DashboardScreen() }
-                entry<ExpensesRoute> { ExpensesScreen() }
+                entry<DashboardRoute> {
+                    DashboardScreen(onAddExpenseClick = { backStack.add(AddExpenseRoute) })
+                }
+                entry<ExpensesRoute> {
+                    ExpensesScreen(onAddExpenseClick = { backStack.add(AddExpenseRoute) })
+                }
+                entry<AddExpenseRoute> {
+                    AddExpenseScreen(
+                        onSaved = {
+                            if (backStack.size > 1) {
+                                backStack.removeAt(backStack.lastIndex)
+                            }
+                        },
+                    )
+                }
                 entry<BudgetsRoute> { BudgetsScreen() }
                 entry<SettingsRoute> { SettingsScreen() }
             },
@@ -91,6 +105,9 @@ internal data object DashboardRoute : MoneyMagicRoute
 
 @Serializable
 internal data object ExpensesRoute : MoneyMagicRoute
+
+@Serializable
+internal data object AddExpenseRoute : MoneyMagicRoute
 
 @Serializable
 internal data object BudgetsRoute : MoneyMagicRoute

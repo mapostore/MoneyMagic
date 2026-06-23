@@ -1,6 +1,7 @@
 package com.indiewalkabout.moneymagic.domain.usecase
 
 import java.math.BigDecimal
+import javax.inject.Inject
 
 data class ExpenseValidationResult(
     val amountMinor: Long?,
@@ -14,7 +15,7 @@ enum class ExpenseValidationError {
     InvalidAmount,
 }
 
-class ValidateExpenseUseCase {
+class ValidateExpenseUseCase @Inject constructor() {
     operator fun invoke(amountText: String, categoryId: Long?): ExpenseValidationResult {
         val errors = mutableListOf<ExpenseValidationError>()
         val amountMinor = parseAmountMinor(amountText, errors)
