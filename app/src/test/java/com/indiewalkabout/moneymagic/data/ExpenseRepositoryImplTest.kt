@@ -4,6 +4,7 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import android.database.sqlite.SQLiteConstraintException
 import com.indiewalkabout.moneymagic.data.local.CategoryEntity
+import com.indiewalkabout.moneymagic.data.local.MoneyMagicDatabaseSeedCallback
 import com.indiewalkabout.moneymagic.data.local.MoneyMagicDatabase
 import com.indiewalkabout.moneymagic.data.local.PaymentMethodEntity
 import com.indiewalkabout.moneymagic.data.repository.CategoryRepositoryImpl
@@ -71,6 +72,29 @@ class ExpenseRepositoryImplTest {
         assertEquals(1, expenses.size)
         assertEquals("Bakery", expenses.single().merchant)
         assertEquals(listOf("food"), expenses.single().tags)
+    }
+
+    @Test
+    fun seededFreshDatabaseSavesExpenseWithDefaultFoodCategory() = runTest {
+        val seededDatabase = Room.inMemoryDatabaseBuilder(
+            ApplicationProvider.getApplicationContext(),
+            MoneyMagicDatabase::class.java,
+        ).addCallback(MoneyMagicDatabaseSeedCallback)
+            .allowMainThreadQueries()
+            .build()
+        val seededRepository = ExpenseRepositoryImpl(seededDatabase.expenseDao())
+
+        try {
+            seededRepository.save(testExpense(categoryId = 1))
+
+            val expenses = seededRepository.observeExpenses().first()
+            val categories = seededDatabase.categoryDao().observeCategories(includeArchived = true).first()
+            assertEquals(1, expenses.size)
+            assertEquals("Bakery", expenses.single().merchant)
+            assertEquals("Food", categories.first { it.id == 1L }.name)
+        } finally {
+            seededDatabase.close()
+        }
     }
 
     @Test

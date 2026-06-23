@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -15,10 +16,13 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.selectableGroup
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
@@ -38,6 +42,7 @@ private val ExpenseCategories = listOf(
 @Composable
 fun AddExpenseScreen(
     onSaved: () -> Unit,
+    onBack: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: AddExpenseViewModel = hiltViewModel(),
 ) {
@@ -56,6 +61,7 @@ fun AddExpenseScreen(
         onMerchantChanged = viewModel::onMerchantChanged,
         onNotesChanged = viewModel::onNotesChanged,
         onSave = viewModel::save,
+        onBack = onBack,
         modifier = modifier,
     )
 }
@@ -68,6 +74,7 @@ private fun AddExpenseContent(
     onMerchantChanged: (String) -> Unit,
     onNotesChanged: (String) -> Unit,
     onSave: () -> Unit,
+    onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Scaffold(modifier = modifier.fillMaxSize()) { innerPadding ->
@@ -79,24 +86,44 @@ private fun AddExpenseContent(
                 .padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            Text(
-                text = "Add expense",
-                style = MaterialTheme.typography.headlineMedium,
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text(
+                    text = "Add expense",
+                    style = MaterialTheme.typography.headlineMedium,
+                )
+                TextButton(
+                    onClick = onBack,
+                    enabled = !uiState.isSaving,
+                ) {
+                    Text("Cancel")
+                }
+            }
             OutlinedTextField(
                 value = uiState.amount,
                 onValueChange = onAmountChanged,
                 modifier = Modifier.fillMaxWidth(),
+                enabled = !uiState.isSaving,
+                isError = uiState.errorMessage != null && !uiState.canSave,
                 label = { Text("Amount") },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                supportingText = {
+                    uiState.errorMessage?.let { errorMessage ->
+                        Text(errorMessage)
+                    }
+                },
             )
             Text(
                 text = "Category",
                 style = MaterialTheme.typography.titleMedium,
             )
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .semantics { selectableGroup() },
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 ExpenseCategories.forEach { (id, label) ->
@@ -104,18 +131,28 @@ private fun AddExpenseContent(
                     if (selected) {
                         Button(
                             onClick = { onCategorySelected(id) },
+                            enabled = !uiState.isSaving,
                             modifier = Modifier
                                 .weight(1f)
-                                .semantics { role = Role.RadioButton },
+                                .widthIn(min = 72.dp)
+                                .semantics {
+                                    role = Role.RadioButton
+                                    this.selected = true
+                                },
                         ) {
                             Text(label)
                         }
                     } else {
                         OutlinedButton(
                             onClick = { onCategorySelected(id) },
+                            enabled = !uiState.isSaving,
                             modifier = Modifier
                                 .weight(1f)
-                                .semantics { role = Role.RadioButton },
+                                .widthIn(min = 72.dp)
+                                .semantics {
+                                    role = Role.RadioButton
+                                    this.selected = false
+                                },
                         ) {
                             Text(label)
                         }
@@ -126,6 +163,7 @@ private fun AddExpenseContent(
                 value = uiState.merchant,
                 onValueChange = onMerchantChanged,
                 modifier = Modifier.fillMaxWidth(),
+                enabled = !uiState.isSaving,
                 label = { Text("Merchant") },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
@@ -134,17 +172,11 @@ private fun AddExpenseContent(
                 value = uiState.notes,
                 onValueChange = onNotesChanged,
                 modifier = Modifier.fillMaxWidth(),
+                enabled = !uiState.isSaving,
                 label = { Text("Notes") },
                 minLines = 3,
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
             )
-            uiState.errorMessage?.let { errorMessage ->
-                Text(
-                    text = errorMessage,
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-            }
             Button(
                 onClick = onSave,
                 enabled = uiState.canSave && !uiState.isSaving,

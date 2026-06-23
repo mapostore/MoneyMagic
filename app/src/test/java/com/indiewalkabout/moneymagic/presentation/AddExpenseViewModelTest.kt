@@ -7,6 +7,7 @@ import com.indiewalkabout.moneymagic.domain.usecase.ValidateExpenseUseCase
 import com.indiewalkabout.moneymagic.presentation.expenses.AddExpenseViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -70,15 +71,34 @@ class AddExpenseViewModelTest {
         assertEquals("Corner Market", repository.savedExpenses.single().merchant)
         assertEquals("Lunch", repository.savedExpenses.single().notes)
     }
+
+    @Test
+    fun saveWhileSavingDoesNotSaveDuplicateExpense() = runTest {
+        val repository = FakeExpenseRepository(saveDelayMillis = 1_000)
+        val viewModel = AddExpenseViewModel(repository, ValidateExpenseUseCase())
+
+        viewModel.onAmountChanged("12.34")
+        viewModel.onCategorySelected(1)
+        viewModel.save()
+        viewModel.save()
+        advanceUntilIdle()
+
+        assertEquals(1, repository.savedCount)
+    }
 }
 
-private class FakeExpenseRepository : ExpenseRepository {
+private class FakeExpenseRepository(
+    private val saveDelayMillis: Long = 0,
+) : ExpenseRepository {
     var savedCount = 0
     val savedExpenses = mutableListOf<Expense>()
 
     override fun observeExpenses(): Flow<List<Expense>> = emptyFlow()
 
     override suspend fun save(expense: Expense): Long {
+        if (saveDelayMillis > 0) {
+            delay(saveDelayMillis)
+        }
         savedCount += 1
         savedExpenses += expense
         return savedCount.toLong()

@@ -7,6 +7,7 @@ import com.indiewalkabout.moneymagic.data.local.BudgetDao
 import com.indiewalkabout.moneymagic.data.local.CategoryDao
 import com.indiewalkabout.moneymagic.data.local.ExpenseDao
 import com.indiewalkabout.moneymagic.data.local.MoneyMagicDatabase
+import com.indiewalkabout.moneymagic.data.local.MoneyMagicDatabaseSeedCallback
 import com.indiewalkabout.moneymagic.data.local.PaymentMethodDao
 import dagger.Module
 import dagger.Provides
@@ -29,7 +30,8 @@ object DatabaseModule {
             context,
             MoneyMagicDatabase::class.java,
             DATABASE_NAME,
-        ).build()
+        ).addCallback(MoneyMagicDatabaseSeedCallback)
+            .build()
 
     @Provides
     fun provideExpenseDao(database: MoneyMagicDatabase): ExpenseDao = database.expenseDao()

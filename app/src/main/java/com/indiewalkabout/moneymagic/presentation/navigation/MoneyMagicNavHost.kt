@@ -36,22 +36,24 @@ fun MoneyMagicNavHost(modifier: Modifier = Modifier) {
     Scaffold(
         modifier = modifier.fillMaxSize(),
         bottomBar = {
-            NavigationBar {
-                destinations.forEach { destination ->
-                    val selected = selectedDestination == destination
-                    NavigationBarItem(
-                        selected = selected,
-                        onClick = {
-                            backStack.clear()
-                            backStack.add(destination.route)
-                        },
-                        modifier = Modifier.testTag(destination.testTag),
-                        icon = {},
-                        label = {
-                            Text(text = destination.label)
-                        },
-                        alwaysShowLabel = true,
-                    )
+            if (selectedDestination != null) {
+                NavigationBar {
+                    destinations.forEach { destination ->
+                        val selected = selectedDestination == destination
+                        NavigationBarItem(
+                            selected = selected,
+                            onClick = {
+                                backStack.clear()
+                                backStack.add(destination.route)
+                            },
+                            modifier = Modifier.testTag(destination.testTag),
+                            icon = {},
+                            label = {
+                                Text(text = destination.label)
+                            },
+                            alwaysShowLabel = true,
+                        )
+                    }
                 }
             }
         },
@@ -74,6 +76,11 @@ fun MoneyMagicNavHost(modifier: Modifier = Modifier) {
                 entry<AddExpenseRoute> {
                     AddExpenseScreen(
                         onSaved = {
+                            if (backStack.size > 1) {
+                                backStack.removeAt(backStack.lastIndex)
+                            }
+                        },
+                        onBack = {
                             if (backStack.size > 1) {
                                 backStack.removeAt(backStack.lastIndex)
                             }

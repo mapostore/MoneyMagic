@@ -60,6 +60,10 @@ class AddExpenseViewModel @Inject constructor(
 
     fun save() {
         val state = uiState.value
+        if (state.isSaving) {
+            return
+        }
+
         val validation = validateExpense(state.amount, state.categoryId)
         if (validation.errors.isNotEmpty() || validation.amountMinor == null) {
             _uiState.update {
