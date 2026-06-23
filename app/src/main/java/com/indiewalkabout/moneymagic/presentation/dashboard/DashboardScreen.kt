@@ -14,6 +14,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.indiewalkabout.moneymagic.domain.model.Expense
+import java.util.Locale
 
 @Composable
 fun DashboardScreen(
@@ -47,17 +49,32 @@ fun DashboardScreen(
             text = "Recent expenses",
             style = MaterialTheme.typography.titleMedium,
         )
-        Text(
-            text = if (uiState.recentExpenses.isEmpty()) {
-                "No recent expenses"
-            } else {
-                "${uiState.recentExpenses.size} recent expenses"
-            },
-            style = MaterialTheme.typography.bodyMedium,
-        )
+        if (uiState.recentExpenses.isEmpty()) {
+            Text(
+                text = "No recent expenses",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        } else {
+            uiState.recentExpenses.forEach { expense ->
+                RecentExpenseText(expense = expense)
+            }
+        }
         Text(
             text = "Top categories",
             style = MaterialTheme.typography.titleMedium,
         )
     }
+}
+
+@Composable
+private fun RecentExpenseText(expense: Expense) {
+    Text(
+        text = "${expense.merchant.ifBlank { "Expense" }} - ${formatAmount(expense.amountMinor, expense.currency)}",
+        style = MaterialTheme.typography.bodyMedium,
+    )
+}
+
+private fun formatAmount(amountMinor: Long, currency: String): String {
+    val amount = amountMinor / 100.0
+    return "%s %.2f".format(Locale.US, currency, amount)
 }

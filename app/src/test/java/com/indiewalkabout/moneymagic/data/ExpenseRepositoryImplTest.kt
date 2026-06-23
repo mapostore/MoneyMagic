@@ -7,6 +7,7 @@ import com.indiewalkabout.moneymagic.data.local.CategoryEntity
 import com.indiewalkabout.moneymagic.data.local.MoneyMagicDatabaseSeedCallback
 import com.indiewalkabout.moneymagic.data.local.MoneyMagicDatabase
 import com.indiewalkabout.moneymagic.data.local.PaymentMethodEntity
+import com.indiewalkabout.moneymagic.data.repository.BudgetRepositoryImpl
 import com.indiewalkabout.moneymagic.data.repository.CategoryRepositoryImpl
 import com.indiewalkabout.moneymagic.data.repository.ExpenseRepositoryImpl
 import com.indiewalkabout.moneymagic.data.repository.PaymentMethodRepositoryImpl
@@ -18,6 +19,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Test
@@ -83,14 +85,18 @@ class ExpenseRepositoryImplTest {
             .allowMainThreadQueries()
             .build()
         val seededRepository = ExpenseRepositoryImpl(seededDatabase.expenseDao())
+        val seededBudgetRepository = BudgetRepositoryImpl(seededDatabase.budgetDao())
 
         try {
             seededRepository.save(testExpense(categoryId = 1))
 
             val expenses = seededRepository.observeExpenses().first()
+            val budgets = seededBudgetRepository.observeBudgets().first()
             val categories = seededDatabase.categoryDao().observeCategories(includeArchived = true).first()
-            assertEquals(1, expenses.size)
-            assertEquals("Bakery", expenses.single().merchant)
+            assertTrue(expenses.any { it.merchant == "Bakery" })
+            assertTrue(expenses.any { it.merchant == "Fresh Market" })
+            assertTrue(budgets.any { it.name == "Monthly spending cap" })
+            assertTrue(budgets.any { it.name == "Food monthly" })
             assertEquals("Food", categories.first { it.id == 1L }.name)
         } finally {
             seededDatabase.close()
