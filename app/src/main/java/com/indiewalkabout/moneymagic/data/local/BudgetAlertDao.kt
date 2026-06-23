@@ -17,6 +17,6 @@ interface BudgetAlertDao {
     )
     suspend fun wasThresholdAlertSent(budgetId: Long, periodKey: String): Boolean
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insert(alert: BudgetAlertEntity)
 }

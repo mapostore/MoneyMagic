@@ -6,8 +6,13 @@ import android.database.sqlite.SQLiteConstraintException
 import com.indiewalkabout.moneymagic.data.local.CategoryEntity
 import com.indiewalkabout.moneymagic.data.local.MoneyMagicDatabase
 import com.indiewalkabout.moneymagic.data.local.PaymentMethodEntity
+import com.indiewalkabout.moneymagic.data.repository.CategoryRepositoryImpl
 import com.indiewalkabout.moneymagic.data.repository.ExpenseRepositoryImpl
+import com.indiewalkabout.moneymagic.data.repository.PaymentMethodRepositoryImpl
+import com.indiewalkabout.moneymagic.domain.model.Category
 import com.indiewalkabout.moneymagic.domain.model.Expense
+import com.indiewalkabout.moneymagic.domain.model.PaymentMethod
+import com.indiewalkabout.moneymagic.domain.model.PaymentMethodType
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.After
@@ -23,6 +28,8 @@ import java.time.Instant
 class ExpenseRepositoryImplTest {
     private lateinit var database: MoneyMagicDatabase
     private lateinit var repository: ExpenseRepositoryImpl
+    private lateinit var categoryRepository: CategoryRepositoryImpl
+    private lateinit var paymentMethodRepository: PaymentMethodRepositoryImpl
 
     @Before
     fun setUp() {
@@ -31,6 +38,8 @@ class ExpenseRepositoryImplTest {
             MoneyMagicDatabase::class.java,
         ).allowMainThreadQueries().build()
         repository = ExpenseRepositoryImpl(database.expenseDao())
+        categoryRepository = CategoryRepositoryImpl(database.categoryDao())
+        paymentMethodRepository = PaymentMethodRepositoryImpl(database.paymentMethodDao())
     }
 
     @After
@@ -114,6 +123,56 @@ class ExpenseRepositoryImplTest {
         database.paymentMethodDao().delete(7)
 
         assertEquals(null, repository.observeExpenses().first().single().paymentMethodId)
+    }
+
+    @Test
+    fun updatingCategoryReferencedByExpenseKeepsExpenseCategoryReference() = runTest {
+        database.categoryDao().upsert(testCategory())
+        repository.save(testExpense())
+
+        categoryRepository.save(
+            Category(
+                id = 1,
+                name = "Groceries",
+                color = 0xFF336699,
+                iconKey = "groceries",
+                sortOrder = 1,
+                archived = false,
+            )
+        )
+
+        val expense = repository.observeExpenses().first().single()
+        val category = categoryRepository.observeCategories(includeArchived = true).first().single()
+        assertEquals(1L, expense.categoryId)
+        assertEquals("Groceries", category.name)
+    }
+
+    @Test
+    fun updatingPaymentMethodReferencedByExpenseKeepsExpensePaymentMethodReference() = runTest {
+        database.categoryDao().upsert(testCategory())
+        database.paymentMethodDao().upsert(
+            PaymentMethodEntity(
+                id = 7,
+                name = "Card",
+                type = "Card",
+                archived = false,
+            )
+        )
+        repository.save(testExpense(paymentMethodId = 7))
+
+        paymentMethodRepository.save(
+            PaymentMethod(
+                id = 7,
+                name = "Visa",
+                type = PaymentMethodType.Card,
+                archived = false,
+            )
+        )
+
+        val expense = repository.observeExpenses().first().single()
+        val paymentMethod = paymentMethodRepository.observePaymentMethods(includeArchived = true).first().single()
+        assertEquals(7L, expense.paymentMethodId)
+        assertEquals("Visa", paymentMethod.name)
     }
 
     private fun testCategory(): CategoryEntity = CategoryEntity(

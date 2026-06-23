@@ -84,6 +84,24 @@ class BudgetRepositoryImplTest {
         assertEquals(null, budgetRepository.observeBudgets().first().single().categoryId)
     }
 
+    @Test
+    fun updatingBudgetWithAlertKeepsThresholdAlertState() = runTest {
+        val budgetId = budgetRepository.save(testBudget(categoryId = null))
+        val periodKey = "2026-06"
+        alertRepository.markThresholdAlertSent(budgetId, periodKey)
+
+        budgetRepository.save(
+            testBudget(categoryId = null).copy(
+                id = budgetId,
+                name = "Groceries updated",
+                amountMinor = 75000,
+            )
+        )
+
+        assertTrue(alertRepository.wasThresholdAlertSent(budgetId, periodKey))
+        assertEquals("Groceries updated", budgetRepository.observeBudgets().first().single().name)
+    }
+
     private fun testCategory(): CategoryEntity = CategoryEntity(
         id = 1,
         name = "Food",
