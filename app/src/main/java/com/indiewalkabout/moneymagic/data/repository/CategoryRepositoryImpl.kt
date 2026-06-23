@@ -5,8 +5,9 @@ import com.indiewalkabout.moneymagic.domain.model.Category
 import com.indiewalkabout.moneymagic.domain.repository.CategoryRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import javax.inject.Inject
 
-class CategoryRepositoryImpl(
+class CategoryRepositoryImpl @Inject constructor(
     private val categoryDao: CategoryDao,
 ) : CategoryRepository {
     override fun observeCategories(includeArchived: Boolean): Flow<List<Category>> =

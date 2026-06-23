@@ -15,6 +15,8 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
+private const val DATABASE_NAME = "money_magic.db"
+
 @Module
 @InstallIn(SingletonComponent::class)
 object DatabaseModule {
@@ -26,7 +28,7 @@ object DatabaseModule {
         Room.databaseBuilder(
             context,
             MoneyMagicDatabase::class.java,
-            "money_magic.db",
+            DATABASE_NAME,
         ).build()
 
     @Provides

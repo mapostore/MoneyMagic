@@ -5,8 +5,9 @@ import com.indiewalkabout.moneymagic.domain.model.Budget
 import com.indiewalkabout.moneymagic.domain.repository.BudgetRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import javax.inject.Inject
 
-class BudgetRepositoryImpl(
+class BudgetRepositoryImpl @Inject constructor(
     private val budgetDao: BudgetDao,
 ) : BudgetRepository {
     override fun observeBudgets(): Flow<List<Budget>> =

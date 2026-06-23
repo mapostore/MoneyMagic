@@ -5,8 +5,9 @@ import com.indiewalkabout.moneymagic.domain.model.PaymentMethod
 import com.indiewalkabout.moneymagic.domain.repository.PaymentMethodRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import javax.inject.Inject
 
-class PaymentMethodRepositoryImpl(
+class PaymentMethodRepositoryImpl @Inject constructor(
     private val paymentMethodDao: PaymentMethodDao,
 ) : PaymentMethodRepository {
     override fun observePaymentMethods(includeArchived: Boolean): Flow<List<PaymentMethod>> =
