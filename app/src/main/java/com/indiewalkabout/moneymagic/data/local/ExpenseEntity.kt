@@ -1,10 +1,17 @@
 package com.indiewalkabout.moneymagic.data.local
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 import java.time.Instant
 
-@Entity(tableName = "expenses")
+@Entity(
+    tableName = "expenses",
+    indices = [
+        Index("categoryId"),
+        Index("paymentMethodId"),
+    ],
+)
 data class ExpenseEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,

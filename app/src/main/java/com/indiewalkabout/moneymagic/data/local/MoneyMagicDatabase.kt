@@ -13,7 +13,7 @@ import androidx.room.TypeConverters
         BudgetAlertEntity::class,
     ],
     version = 1,
-    exportSchema = false,
+    exportSchema = true,
 )
 @TypeConverters(Converters::class)
 abstract class MoneyMagicDatabase : RoomDatabase() {
