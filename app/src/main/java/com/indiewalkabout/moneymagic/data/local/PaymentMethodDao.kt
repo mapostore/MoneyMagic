@@ -22,4 +22,7 @@ interface PaymentMethodDao {
 
     @Query("UPDATE payment_methods SET archived = 1 WHERE id = :paymentMethodId")
     suspend fun archive(paymentMethodId: Long)
+
+    @Query("DELETE FROM payment_methods WHERE id = :paymentMethodId")
+    suspend fun delete(paymentMethodId: Long)
 }

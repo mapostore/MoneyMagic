@@ -22,4 +22,7 @@ interface CategoryDao {
 
     @Query("UPDATE categories SET archived = 1 WHERE id = :categoryId")
     suspend fun archive(categoryId: Long)
+
+    @Query("DELETE FROM categories WHERE id = :categoryId")
+    suspend fun delete(categoryId: Long)
 }

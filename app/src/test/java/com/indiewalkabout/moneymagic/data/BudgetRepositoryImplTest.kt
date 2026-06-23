@@ -2,15 +2,20 @@ package com.indiewalkabout.moneymagic.data
 
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
+import android.database.sqlite.SQLiteConstraintException
+import com.indiewalkabout.moneymagic.data.local.CategoryEntity
 import com.indiewalkabout.moneymagic.data.local.MoneyMagicDatabase
 import com.indiewalkabout.moneymagic.data.repository.BudgetAlertRepositoryImpl
 import com.indiewalkabout.moneymagic.data.repository.BudgetRepositoryImpl
 import com.indiewalkabout.moneymagic.domain.model.Budget
 import com.indiewalkabout.moneymagic.domain.model.BudgetPeriod
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -59,4 +64,42 @@ class BudgetRepositoryImplTest {
 
         assertFalse(alertRepository.wasThresholdAlertSent(budgetId, periodKey))
     }
+
+    @Test
+    fun rejectsBudgetWithMissingCategoryReference() = runTest {
+        try {
+            budgetRepository.save(testBudget(categoryId = 999))
+            fail("Expected missing category reference to be rejected")
+        } catch (_: SQLiteConstraintException) {
+        }
+    }
+
+    @Test
+    fun deletingCategoryClearsBudgetCategoryReference() = runTest {
+        database.categoryDao().upsert(testCategory())
+        budgetRepository.save(testBudget(categoryId = 1))
+
+        database.categoryDao().delete(1)
+
+        assertEquals(null, budgetRepository.observeBudgets().first().single().categoryId)
+    }
+
+    private fun testCategory(): CategoryEntity = CategoryEntity(
+        id = 1,
+        name = "Food",
+        color = 0xFF00AA00,
+        iconKey = "food",
+        sortOrder = 0,
+        archived = false,
+    )
+
+    private fun testBudget(categoryId: Long?): Budget = Budget(
+        name = "Groceries",
+        amountMinor = 50000,
+        currency = "EUR",
+        period = BudgetPeriod.Monthly,
+        categoryId = categoryId,
+        notificationThresholdPercent = 80,
+        enabled = true,
+    )
 }
