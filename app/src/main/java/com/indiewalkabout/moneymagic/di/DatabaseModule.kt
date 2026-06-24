@@ -2,13 +2,13 @@ package com.indiewalkabout.moneymagic.di
 
 import android.content.Context
 import androidx.room.Room
-import com.indiewalkabout.moneymagic.data.local.BudgetAlertDao
-import com.indiewalkabout.moneymagic.data.local.BudgetDao
-import com.indiewalkabout.moneymagic.data.local.CategoryDao
-import com.indiewalkabout.moneymagic.data.local.ExpenseDao
-import com.indiewalkabout.moneymagic.data.local.MoneyMagicDatabase
-import com.indiewalkabout.moneymagic.data.local.MoneyMagicDatabaseSeedCallback
-import com.indiewalkabout.moneymagic.data.local.PaymentMethodDao
+import com.indiewalkabout.moneymagic.feature.budgets.data.local.BudgetAlertDao
+import com.indiewalkabout.moneymagic.feature.budgets.data.local.BudgetDao
+import com.indiewalkabout.moneymagic.feature.expenses.data.local.CategoryDao
+import com.indiewalkabout.moneymagic.feature.expenses.data.local.ExpenseDao
+import com.indiewalkabout.moneymagic.core.database.MoneyMagicDatabase
+import com.indiewalkabout.moneymagic.core.database.MoneyMagicDatabaseSeedCallback
+import com.indiewalkabout.moneymagic.feature.expenses.data.local.PaymentMethodDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn

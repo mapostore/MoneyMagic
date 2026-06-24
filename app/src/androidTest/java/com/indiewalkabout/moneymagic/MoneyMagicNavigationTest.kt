@@ -4,8 +4,11 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
 import androidx.test.espresso.Espresso.pressBack
 import org.junit.Rule
@@ -57,6 +60,7 @@ class MoneyMagicNavigationTest {
         composeRule.onNodeWithText("Monthly limit").performTextInput("123.45")
         composeRule.onNodeWithText("Save monthly budget").performClick()
 
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Test monthly - Monthly"))
         composeRule.onNodeWithText("Test monthly - Monthly").assertExists()
     }
 }

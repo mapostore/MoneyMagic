@@ -1,10 +1,10 @@
 package com.indiewalkabout.moneymagic.presentation.common
 
 import com.indiewalkabout.moneymagic.core.time.PeriodCalculator
-import com.indiewalkabout.moneymagic.domain.model.Budget
-import com.indiewalkabout.moneymagic.domain.model.BudgetProgress
-import com.indiewalkabout.moneymagic.domain.model.Expense
-import com.indiewalkabout.moneymagic.domain.usecase.CalculateBudgetProgressUseCase
+import com.indiewalkabout.moneymagic.feature.budgets.domain.model.Budget
+import com.indiewalkabout.moneymagic.feature.budgets.domain.model.BudgetProgress
+import com.indiewalkabout.moneymagic.feature.expenses.domain.model.Expense
+import com.indiewalkabout.moneymagic.feature.budgets.domain.usecase.CalculateBudgetProgressUseCase
 import java.time.Clock
 import java.time.LocalDate
 

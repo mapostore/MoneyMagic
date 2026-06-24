@@ -1,6 +1,6 @@
 package com.indiewalkabout.moneymagic.core.time
 
-import com.indiewalkabout.moneymagic.domain.model.BudgetPeriod
+import com.indiewalkabout.moneymagic.feature.budgets.domain.model.BudgetPeriod
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.temporal.TemporalAdjusters

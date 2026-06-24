@@ -15,11 +15,11 @@ import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
-import com.indiewalkabout.moneymagic.presentation.budgets.BudgetsScreen
-import com.indiewalkabout.moneymagic.presentation.dashboard.DashboardScreen
-import com.indiewalkabout.moneymagic.presentation.expenses.AddExpenseScreen
-import com.indiewalkabout.moneymagic.presentation.expenses.ExpensesScreen
-import com.indiewalkabout.moneymagic.presentation.settings.SettingsScreen
+import com.indiewalkabout.moneymagic.feature.budgets.presentation.BudgetsScreen
+import com.indiewalkabout.moneymagic.feature.dashboard.presentation.DashboardScreen
+import com.indiewalkabout.moneymagic.feature.expenses.presentation.AddExpenseScreen
+import com.indiewalkabout.moneymagic.feature.expenses.presentation.ExpensesScreen
+import com.indiewalkabout.moneymagic.feature.settings.presentation.SettingsScreen
 import kotlinx.serialization.Serializable
 
 @Composable

@@ -1,6 +1,6 @@
 package com.indiewalkabout.moneymagic.core.time
 
-import com.indiewalkabout.moneymagic.domain.model.BudgetPeriod
+import com.indiewalkabout.moneymagic.feature.budgets.domain.model.BudgetPeriod
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import java.time.LocalDate
