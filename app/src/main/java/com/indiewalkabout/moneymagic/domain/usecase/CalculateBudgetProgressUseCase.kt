@@ -2,9 +2,10 @@ package com.indiewalkabout.moneymagic.domain.usecase
 
 import com.indiewalkabout.moneymagic.domain.model.Budget
 import com.indiewalkabout.moneymagic.domain.model.BudgetProgress
+import javax.inject.Inject
 import kotlin.math.roundToInt
 
-class CalculateBudgetProgressUseCase {
+class CalculateBudgetProgressUseCase @Inject constructor() {
     operator fun invoke(budget: Budget, spentMinor: Long): BudgetProgress {
         val percentUsed = if (budget.amountMinor <= 0) {
             0

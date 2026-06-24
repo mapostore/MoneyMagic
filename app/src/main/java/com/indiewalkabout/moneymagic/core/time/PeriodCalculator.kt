@@ -4,10 +4,11 @@ import com.indiewalkabout.moneymagic.domain.model.BudgetPeriod
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.temporal.TemporalAdjusters
+import javax.inject.Inject
 
 data class DateRange(val start: LocalDate, val endInclusive: LocalDate)
 
-class PeriodCalculator {
+class PeriodCalculator @Inject constructor() {
     fun rangeFor(period: BudgetPeriod, anchor: LocalDate): DateRange =
         when (period) {
             BudgetPeriod.Weekly -> DateRange(

@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.indiewalkabout.moneymagic.domain.model.BudgetProgress
 import com.indiewalkabout.moneymagic.domain.model.Expense
 import java.util.Locale
 
@@ -45,6 +46,16 @@ fun DashboardScreen(
             text = "Budget progress",
             style = MaterialTheme.typography.titleMedium,
         )
+        if (uiState.budgetProgress.isEmpty()) {
+            Text(
+                text = "No active budgets",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        } else {
+            uiState.budgetProgress.forEach { progress ->
+                BudgetProgressText(progress = progress)
+            }
+        }
         Text(
             text = "Recent expenses",
             style = MaterialTheme.typography.titleMedium,
@@ -77,4 +88,13 @@ private fun RecentExpenseText(expense: Expense) {
 private fun formatAmount(amountMinor: Long, currency: String): String {
     val amount = amountMinor / 100.0
     return "%s %.2f".format(Locale.US, currency, amount)
+}
+
+@Composable
+private fun BudgetProgressText(progress: BudgetProgress) {
+    Text(
+        text = "${progress.budget.name}: ${progress.percentUsed}% used, " +
+            "${formatAmount(progress.remainingMinor, progress.budget.currency)} remaining",
+        style = MaterialTheme.typography.bodyMedium,
+    )
 }

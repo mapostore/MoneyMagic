@@ -2,6 +2,7 @@ package com.indiewalkabout.moneymagic.presentation.expenses
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -9,6 +10,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -49,10 +51,36 @@ fun ExpensesScreen(
             text = "Filter by period",
             style = MaterialTheme.typography.titleMedium,
         )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            ExpensePeriodFilter.entries.forEach { filter ->
+                FilterButton(
+                    label = filter.label(),
+                    selected = uiState.selectedPeriodFilter == filter,
+                    onClick = { viewModel.selectPeriodFilter(filter) },
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
         Text(
             text = "Sort by newest",
             style = MaterialTheme.typography.titleMedium,
         )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            ExpenseSortOption.entries.forEach { sortOption ->
+                FilterButton(
+                    label = sortOption.label(),
+                    selected = uiState.selectedSortOption == sortOption,
+                    onClick = { viewModel.selectSortOption(sortOption) },
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -105,3 +133,37 @@ private fun formatDate(expense: Expense): String =
     DateTimeFormatter.ofPattern("MMM d, HH:mm", Locale.US)
         .withZone(ZoneId.systemDefault())
         .format(expense.dateTime)
+
+@Composable
+private fun FilterButton(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    if (selected) {
+        Button(onClick = onClick, modifier = modifier) {
+            Text(label)
+        }
+    } else {
+        OutlinedButton(onClick = onClick, modifier = modifier) {
+            Text(label)
+        }
+    }
+}
+
+private fun ExpensePeriodFilter.label(): String =
+    when (this) {
+        ExpensePeriodFilter.ALL -> "All"
+        ExpensePeriodFilter.DAY -> "Day"
+        ExpensePeriodFilter.WEEK -> "Week"
+        ExpensePeriodFilter.MONTH -> "Month"
+        ExpensePeriodFilter.YEAR -> "Year"
+    }
+
+private fun ExpenseSortOption.label(): String =
+    when (this) {
+        ExpenseSortOption.NEWEST -> "Newest"
+        ExpenseSortOption.HIGHEST_AMOUNT -> "Most"
+        ExpenseSortOption.LOWEST_AMOUNT -> "Least"
+    }

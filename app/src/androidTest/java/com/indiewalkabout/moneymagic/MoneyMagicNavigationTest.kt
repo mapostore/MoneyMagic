@@ -6,6 +6,7 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
 import androidx.test.espresso.Espresso.pressBack
 import org.junit.Rule
 import org.junit.Test
@@ -46,5 +47,16 @@ class MoneyMagicNavigationTest {
 
         composeRule.onNodeWithText("Budget progress").assertExists()
         composeRule.onNodeWithTag("bottom_nav_dashboard").assertExists()
+    }
+
+    @Test
+    fun budgetScreenAcceptsMonthlyBudget() {
+        composeRule.onNodeWithTag("bottom_nav_budgets").performClick()
+
+        composeRule.onNodeWithText("Budget name").performTextInput("Test monthly")
+        composeRule.onNodeWithText("Monthly limit").performTextInput("123.45")
+        composeRule.onNodeWithText("Save monthly budget").performClick()
+
+        composeRule.onNodeWithText("Test monthly - Monthly").assertExists()
     }
 }
