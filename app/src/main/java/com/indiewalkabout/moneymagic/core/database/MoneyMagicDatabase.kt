@@ -1,6 +1,7 @@
 package com.indiewalkabout.moneymagic.core.database
 
 import androidx.room.Database
+import androidx.room.migration.Migration
 import androidx.room.RoomDatabase.Callback
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
@@ -25,7 +26,7 @@ import java.time.Instant
         BudgetEntity::class,
         BudgetAlertEntity::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -95,6 +96,7 @@ object MoneyMagicDatabaseSeedCallback : Callback() {
             """
             INSERT OR IGNORE INTO expenses (
                 id,
+                name,
                 amountMinor,
                 currency,
                 dateTime,
@@ -107,17 +109,23 @@ object MoneyMagicDatabaseSeedCallback : Callback() {
                 updatedAt
             )
             VALUES
-                (101, 845, 'EUR', ${millis("2026-06-23T07:45:00Z")}, 1, 'Corner Bakery', 2, 'Breakfast before work', '["demo","food"]', $createdAt, $createdAt),
-                (102, 3290, 'EUR', ${millis("2026-06-22T17:20:00Z")}, 1, 'Fresh Market', 2, 'Weekly groceries', '["demo","groceries"]', $createdAt, $createdAt),
-                (103, 250, 'EUR', ${millis("2026-06-22T06:35:00Z")}, 2, 'Metro Ticket', 1, 'Morning commute', '["demo","transport"]', $createdAt, $createdAt),
-                (104, 5690, 'EUR', ${millis("2026-06-21T19:10:00Z")}, 4, 'Bookshop Online', 3, 'Personal development book', '["demo","shopping"]', $createdAt, $createdAt),
-                (105, 11990, 'EUR', ${millis("2026-06-20T10:00:00Z")}, 3, 'Energy Utility', 4, 'Monthly electricity bill', '["demo","home","bill"]', $createdAt, $createdAt),
-                (106, 1860, 'EUR', ${millis("2026-06-18T12:40:00Z")}, 1, 'Lunch Spot', 2, 'Team lunch', '["demo","food"]', $createdAt, $createdAt),
-                (107, 4200, 'EUR', ${millis("2026-06-14T15:30:00Z")}, 2, 'Fuel Station', 3, 'Weekend trip fuel', '["demo","transport"]', $createdAt, $createdAt),
-                (108, 1599, 'EUR', ${millis("2026-06-10T20:05:00Z")}, 4, 'Cinema', 2, 'Movie night', '["demo","leisure"]', $createdAt, $createdAt)
+                (101, 'Breakfast', 845, 'EUR', ${millis("2026-06-23T07:45:00Z")}, 1, 'Corner Bakery', 2, 'Breakfast before work', '["demo","food"]', $createdAt, $createdAt),
+                (102, 'Weekly groceries', 3290, 'EUR', ${millis("2026-06-22T17:20:00Z")}, 1, 'Fresh Market', 2, 'Weekly groceries', '["demo","groceries"]', $createdAt, $createdAt),
+                (103, 'Metro ticket', 250, 'EUR', ${millis("2026-06-22T06:35:00Z")}, 2, 'Metro Ticket', 1, 'Morning commute', '["demo","transport"]', $createdAt, $createdAt),
+                (104, 'Book order', 5690, 'EUR', ${millis("2026-06-21T19:10:00Z")}, 4, 'Bookshop Online', 3, 'Personal development book', '["demo","shopping"]', $createdAt, $createdAt),
+                (105, 'Electricity bill', 11990, 'EUR', ${millis("2026-06-20T10:00:00Z")}, 3, 'Energy Utility', 4, 'Monthly electricity bill', '["demo","home","bill"]', $createdAt, $createdAt),
+                (106, 'Team lunch', 1860, 'EUR', ${millis("2026-06-18T12:40:00Z")}, 1, 'Lunch Spot', 2, 'Team lunch', '["demo","food"]', $createdAt, $createdAt),
+                (107, 'Fuel refill', 4200, 'EUR', ${millis("2026-06-14T15:30:00Z")}, 2, 'Fuel Station', 3, 'Weekend trip fuel', '["demo","transport"]', $createdAt, $createdAt),
+                (108, 'Movie night', 1599, 'EUR', ${millis("2026-06-10T20:05:00Z")}, 4, 'Cinema', 2, 'Movie night', '["demo","leisure"]', $createdAt, $createdAt)
             """.trimIndent(),
         )
     }
 
     private fun millis(value: String): Long = Instant.parse(value).toEpochMilli()
+}
+
+val MIGRATION_1_2 = object : Migration(1, 2) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE expenses ADD COLUMN name TEXT NOT NULL DEFAULT ''")
+    }
 }

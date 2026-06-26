@@ -56,6 +56,7 @@ class ExpenseRepositoryImplTest {
         val now = Instant.parse("2026-06-22T10:00:00Z")
         repository.save(
             Expense(
+                name = "Bakery",
                 amountMinor = 1250,
                 currency = "EUR",
                 dateTime = now,
@@ -220,6 +221,7 @@ class ExpenseRepositoryImplTest {
     ): Expense {
         val now = Instant.parse("2026-06-22T10:00:00Z")
         return Expense(
+            name = "Bakery",
             amountMinor = 1250,
             currency = "EUR",
             dateTime = now,

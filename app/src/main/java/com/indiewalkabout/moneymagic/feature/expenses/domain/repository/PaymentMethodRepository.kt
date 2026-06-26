@@ -6,4 +6,5 @@ import kotlinx.coroutines.flow.Flow
 interface PaymentMethodRepository {
     fun observePaymentMethods(includeArchived: Boolean = false): Flow<List<PaymentMethod>>
     suspend fun save(paymentMethod: PaymentMethod): Long
+    suspend fun archive(paymentMethodId: Long)
 }

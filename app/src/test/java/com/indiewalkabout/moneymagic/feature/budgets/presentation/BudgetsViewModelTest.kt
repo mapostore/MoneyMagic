@@ -108,6 +108,7 @@ class BudgetsViewModelTest {
         val dateTime = Instant.parse(instant)
         return Expense(
             id = 0,
+            name = "Test expense",
             amountMinor = amountMinor,
             currency = "EUR",
             dateTime = dateTime,

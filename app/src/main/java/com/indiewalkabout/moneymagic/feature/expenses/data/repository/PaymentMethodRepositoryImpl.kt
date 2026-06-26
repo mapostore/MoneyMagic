@@ -15,4 +15,8 @@ class PaymentMethodRepositoryImpl @Inject constructor(
 
     override suspend fun save(paymentMethod: PaymentMethod): Long =
         paymentMethodDao.upsert(paymentMethod.toEntity())
+
+    override suspend fun archive(paymentMethodId: Long) {
+        paymentMethodDao.archive(paymentMethodId)
+    }
 }

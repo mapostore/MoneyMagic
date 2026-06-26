@@ -11,10 +11,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
+import com.indiewalkabout.moneymagic.R
 import com.indiewalkabout.moneymagic.feature.budgets.presentation.BudgetsScreen
 import com.indiewalkabout.moneymagic.feature.dashboard.presentation.DashboardScreen
 import com.indiewalkabout.moneymagic.feature.expenses.presentation.AddExpenseScreen
@@ -49,7 +51,7 @@ fun MoneyMagicNavHost(modifier: Modifier = Modifier) {
                             modifier = Modifier.testTag(destination.testTag),
                             icon = {},
                             label = {
-                                Text(text = destination.label)
+                                Text(text = stringResource(destination.labelResId))
                             },
                             alwaysShowLabel = true,
                         )
@@ -95,14 +97,14 @@ fun MoneyMagicNavHost(modifier: Modifier = Modifier) {
 }
 
 private enum class MainDestination(
-    val label: String,
+    val labelResId: Int,
     val route: MoneyMagicRoute,
     val testTag: String,
 ) {
-    Dashboard("Dashboard", DashboardRoute, "bottom_nav_dashboard"),
-    Expenses("Expenses", ExpensesRoute, "bottom_nav_expenses"),
-    Budgets("Budgets", BudgetsRoute, "bottom_nav_budgets"),
-    Settings("Settings", SettingsRoute, "bottom_nav_settings"),
+    Dashboard(R.string.bottom_nav_dashboard, DashboardRoute, "bottom_nav_dashboard"),
+    Expenses(R.string.bottom_nav_expenses, ExpensesRoute, "bottom_nav_expenses"),
+    Budgets(R.string.bottom_nav_budgets, BudgetsRoute, "bottom_nav_budgets"),
+    Settings(R.string.bottom_nav_settings, SettingsRoute, "bottom_nav_settings"),
 }
 
 internal sealed interface MoneyMagicRoute : NavKey

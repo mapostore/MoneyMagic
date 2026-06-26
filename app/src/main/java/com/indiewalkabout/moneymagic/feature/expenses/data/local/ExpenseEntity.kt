@@ -30,6 +30,7 @@ import java.time.Instant
 data class ExpenseEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
+    val name: String,
     val amountMinor: Long,
     val currency: String,
     val dateTime: Instant,

@@ -29,9 +29,14 @@ data class BudgetsUiState(
     val thresholdPercent: String = "80",
     val budgetProgress: List<BudgetProgress> = emptyList(),
     val canSave: Boolean = false,
-    val errorMessage: String? = null,
+    val errorMessage: BudgetError? = null,
     val isSaving: Boolean = false,
 )
+
+enum class BudgetError {
+    InvalidForm,
+    SaveFailed,
+}
 
 @HiltViewModel
 class BudgetsViewModel @Inject constructor(
@@ -92,7 +97,7 @@ class BudgetsViewModel @Inject constructor(
             formState.update {
                 it.copy(
                     canSave = false,
-                    errorMessage = "Enter a name, amount, and threshold from 1 to 100.",
+                    errorMessage = BudgetError.InvalidForm,
                     isSaving = false,
                 )
             }
@@ -127,7 +132,7 @@ class BudgetsViewModel @Inject constructor(
             }.onFailure {
                 formState.update {
                     it.copy(
-                        errorMessage = "Unable to save budget. Please try again.",
+                        errorMessage = BudgetError.SaveFailed,
                         isSaving = false,
                     )
                 }

@@ -14,4 +14,8 @@ class CategoryRepositoryImpl @Inject constructor(
         categoryDao.observeCategories(includeArchived).map { categories -> categories.map { it.toDomain() } }
 
     override suspend fun save(category: Category): Long = categoryDao.upsert(category.toEntity())
+
+    override suspend fun archive(categoryId: Long) {
+        categoryDao.archive(categoryId)
+    }
 }

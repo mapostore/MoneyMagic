@@ -3,8 +3,12 @@ package com.indiewalkabout.moneymagic.feature.expenses.presentation
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.indiewalkabout.moneymagic.feature.budgets.domain.model.BudgetPeriod
+import com.indiewalkabout.moneymagic.feature.expenses.domain.model.Category
 import com.indiewalkabout.moneymagic.feature.expenses.domain.model.Expense
+import com.indiewalkabout.moneymagic.feature.expenses.domain.model.PaymentMethod
+import com.indiewalkabout.moneymagic.feature.expenses.domain.repository.CategoryRepository
 import com.indiewalkabout.moneymagic.feature.expenses.domain.repository.ExpenseRepository
+import com.indiewalkabout.moneymagic.feature.expenses.domain.repository.PaymentMethodRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.Clock
 import java.time.LocalDate
@@ -33,14 +37,22 @@ enum class ExpenseSortOption {
 }
 
 data class ExpensesUiState(
-    val expenses: List<Expense> = emptyList(),
+    val expenses: List<ExpenseListItem> = emptyList(),
     val selectedPeriodFilter: ExpensePeriodFilter = ExpensePeriodFilter.ALL,
     val selectedSortOption: ExpenseSortOption = ExpenseSortOption.NEWEST,
+)
+
+data class ExpenseListItem(
+    val expense: Expense,
+    val categoryName: String,
+    val paymentMethodName: String?,
 )
 
 @HiltViewModel
 class ExpensesViewModel @Inject constructor(
     expenseRepository: ExpenseRepository,
+    categoryRepository: CategoryRepository,
+    paymentMethodRepository: PaymentMethodRepository,
     private val clock: Clock,
 ) : ViewModel() {
     private val selectedPeriodFilter = MutableStateFlow(ExpensePeriodFilter.ALL)
@@ -49,13 +61,16 @@ class ExpensesViewModel @Inject constructor(
     val uiState: StateFlow<ExpensesUiState> =
         combine(
             expenseRepository.observeExpenses(),
+            categoryRepository.observeCategories(),
+            paymentMethodRepository.observePaymentMethods(),
             selectedPeriodFilter,
             selectedSortOption,
-        ) { expenses, periodFilter, sortOption ->
+        ) { expenses, categories, paymentMethods, periodFilter, sortOption ->
             ExpensesUiState(
                 expenses = expenses
                     .filterByPeriod(periodFilter, clock)
-                    .sortedBy(sortOption),
+                    .sortedBy(sortOption)
+                    .toListItems(categories, paymentMethods),
                 selectedPeriodFilter = periodFilter,
                 selectedSortOption = sortOption,
             )
@@ -102,6 +117,21 @@ private fun List<Expense>.sortedBy(sortOption: ExpenseSortOption): List<Expense>
         ExpenseSortOption.HIGHEST_AMOUNT -> sortedByDescending { it.amountMinor }
         ExpenseSortOption.LOWEST_AMOUNT -> sortedBy { it.amountMinor }
     }
+
+private fun List<Expense>.toListItems(
+    categories: List<Category>,
+    paymentMethods: List<PaymentMethod>,
+): List<ExpenseListItem> {
+    val categoriesById = categories.associateBy { it.id }
+    val paymentMethodsById = paymentMethods.associateBy { it.id }
+    return map { expense ->
+        ExpenseListItem(
+            expense = expense,
+            categoryName = categoriesById[expense.categoryId]?.name.orEmpty(),
+            paymentMethodName = expense.paymentMethodId?.let { paymentMethodsById[it]?.name },
+        )
+    }
+}
 
 private fun rangeFor(period: BudgetPeriod, anchor: LocalDate): ClosedRange<LocalDate> =
     when (period) {

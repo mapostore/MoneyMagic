@@ -5,6 +5,7 @@ import com.indiewalkabout.moneymagic.feature.expenses.domain.model.Expense
 
 fun Expense.toEntity(): ExpenseEntity = ExpenseEntity(
     id = id,
+    name = name,
     amountMinor = amountMinor,
     currency = currency,
     dateTime = dateTime,
@@ -19,6 +20,7 @@ fun Expense.toEntity(): ExpenseEntity = ExpenseEntity(
 
 fun ExpenseEntity.toDomain(): Expense = Expense(
     id = id,
+    name = name,
     amountMinor = amountMinor,
     currency = currency,
     dateTime = dateTime,

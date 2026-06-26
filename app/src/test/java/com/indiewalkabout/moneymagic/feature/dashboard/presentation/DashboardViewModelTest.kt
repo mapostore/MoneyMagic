@@ -3,11 +3,12 @@ package com.indiewalkabout.moneymagic.feature.dashboard.presentation
 import androidx.arch.core.executor.testing.InstantTaskExecutorRule
 import com.indiewalkabout.moneymagic.feature.budgets.domain.model.Budget
 import com.indiewalkabout.moneymagic.feature.budgets.domain.model.BudgetPeriod
-import com.indiewalkabout.moneymagic.feature.expenses.domain.model.Expense
 import com.indiewalkabout.moneymagic.feature.budgets.domain.repository.BudgetRepository
-import com.indiewalkabout.moneymagic.feature.expenses.domain.repository.ExpenseRepository
 import com.indiewalkabout.moneymagic.feature.budgets.domain.usecase.CalculateBudgetProgressUseCase
-import com.indiewalkabout.moneymagic.feature.dashboard.presentation.DashboardViewModel
+import com.indiewalkabout.moneymagic.feature.expenses.domain.model.Category
+import com.indiewalkabout.moneymagic.feature.expenses.domain.model.Expense
+import com.indiewalkabout.moneymagic.feature.expenses.domain.repository.CategoryRepository
+import com.indiewalkabout.moneymagic.feature.expenses.domain.repository.ExpenseRepository
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneOffset
@@ -15,6 +16,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -68,6 +70,7 @@ class DashboardViewModelTest {
                     ),
                 ),
             ),
+            categoryRepository = FakeDashboardCategoryRepository(),
             calculateBudgetProgress = CalculateBudgetProgressUseCase(),
             clock = clock,
         )
@@ -78,12 +81,15 @@ class DashboardViewModelTest {
         assertEquals("Monthly cap", progress.budget.name)
         assertEquals(2500, progress.spentMinor)
         assertEquals(25, progress.percentUsed)
+        assertEquals("Food", viewModel.uiState.value.topCategories.single().category.name)
+        assertEquals(11500, viewModel.uiState.value.topCategories.single().amountMinor)
     }
 
     private fun testExpense(amountMinor: Long, instant: String): Expense {
         val dateTime = Instant.parse(instant)
         return Expense(
             id = 0,
+            name = "Test expense",
             amountMinor = amountMinor,
             currency = "EUR",
             dateTime = dateTime,
@@ -96,6 +102,26 @@ class DashboardViewModelTest {
             updatedAt = dateTime,
         )
     }
+}
+
+private class FakeDashboardCategoryRepository : CategoryRepository {
+    override fun observeCategories(includeArchived: Boolean): Flow<List<Category>> =
+        flowOf(
+            listOf(
+                Category(
+                    id = 1,
+                    name = "Food",
+                    color = 0xFF00AA00,
+                    iconKey = "food",
+                    sortOrder = 0,
+                    archived = false,
+                ),
+            ),
+        )
+
+    override suspend fun save(category: Category): Long = error("Not used")
+
+    override suspend fun archive(categoryId: Long) = error("Not used")
 }
 
 private class FakeDashboardExpenseRepository(

@@ -24,13 +24,17 @@ class BudgetNotificationService @Inject constructor(
         val channelId = "budget_alerts"
         val manager = context.getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(
-            NotificationChannel(channelId, "Budget alerts", NotificationManager.IMPORTANCE_DEFAULT),
+            NotificationChannel(
+                channelId,
+                context.getString(R.string.budget_alert_channel),
+                NotificationManager.IMPORTANCE_DEFAULT,
+            ),
         )
 
         val notification = NotificationCompat.Builder(context, channelId)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
-            .setContentTitle("Budget alert")
-            .setContentText("$budgetName is $percentUsed% used")
+            .setContentTitle(context.getString(R.string.budget_alert_title))
+            .setContentText(context.getString(R.string.budget_alert_content, budgetName, percentUsed))
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .build()
 

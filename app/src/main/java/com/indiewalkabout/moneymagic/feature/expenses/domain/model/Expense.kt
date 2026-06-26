@@ -4,6 +4,7 @@ import java.time.Instant
 
 data class Expense(
     val id: Long = 0,
+    val name: String,
     val amountMinor: Long,
     val currency: String,
     val dateTime: Instant,
