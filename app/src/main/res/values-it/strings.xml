@@ -70,6 +70,8 @@
     <string name="budget_control">Controllo budget</string>
     <string name="budget_name">Nome budget</string>
     <string name="monthly_limit">Limite mensile</string>
+    <string name="budget_scope">Ambito budget</string>
+    <string name="all_categories">Tutte le categorie</string>
     <string name="alert_threshold_percent">Percentuale soglia avviso</string>
     <string name="save_monthly_budget">Salva budget mensile</string>
     <string name="active_budgets">Budget attivi</string>

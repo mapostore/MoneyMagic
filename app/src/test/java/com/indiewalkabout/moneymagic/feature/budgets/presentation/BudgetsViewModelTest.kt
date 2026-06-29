@@ -7,7 +7,8 @@ import com.indiewalkabout.moneymagic.feature.expenses.domain.model.Expense
 import com.indiewalkabout.moneymagic.feature.budgets.domain.repository.BudgetRepository
 import com.indiewalkabout.moneymagic.feature.expenses.domain.repository.ExpenseRepository
 import com.indiewalkabout.moneymagic.feature.budgets.domain.usecase.CalculateBudgetProgressUseCase
-import com.indiewalkabout.moneymagic.feature.budgets.presentation.BudgetsViewModel
+import com.indiewalkabout.moneymagic.feature.expenses.domain.model.Category
+import com.indiewalkabout.moneymagic.feature.expenses.domain.repository.CategoryRepository
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneOffset
@@ -15,6 +16,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -53,6 +55,7 @@ class BudgetsViewModelTest {
         val viewModel = BudgetsViewModel(
             budgetRepository = budgetRepository,
             expenseRepository = FakeBudgetExpenseRepository(emptyList()),
+            categoryRepository = FakeBudgetCategoryRepository(),
             calculateBudgetProgress = CalculateBudgetProgressUseCase(),
             clock = clock,
         )
@@ -67,6 +70,33 @@ class BudgetsViewModelTest {
         assertEquals("Monthly cap", budgetRepository.savedBudgets.single().name)
         assertEquals(75050, budgetRepository.savedBudgets.single().amountMinor)
         assertEquals(BudgetPeriod.Monthly, budgetRepository.savedBudgets.single().period)
+        assertEquals(null, budgetRepository.savedBudgets.single().categoryId)
+    }
+
+    @Test
+    fun savesMonthlyBudgetForSelectedCategory() = runTest {
+        val budgetRepository = FakeBudgetRepository()
+        val viewModel = BudgetsViewModel(
+            budgetRepository = budgetRepository,
+            expenseRepository = FakeBudgetExpenseRepository(emptyList()),
+            categoryRepository = FakeBudgetCategoryRepository(),
+            calculateBudgetProgress = CalculateBudgetProgressUseCase(),
+            clock = clock,
+        )
+        backgroundScope.launch { viewModel.uiState.collect {} }
+        advanceUntilIdle()
+
+        viewModel.onNameChanged("Food cap")
+        viewModel.onAmountChanged("250.00")
+        viewModel.onCategorySelected(1)
+        viewModel.saveBudget()
+        advanceUntilIdle()
+
+        assertEquals(1, budgetRepository.savedBudgets.size)
+        assertEquals("Food cap", budgetRepository.savedBudgets.single().name)
+        assertEquals(25000, budgetRepository.savedBudgets.single().amountMinor)
+        assertEquals(1L, budgetRepository.savedBudgets.single().categoryId)
+        assertEquals(null, viewModel.uiState.value.selectedCategoryId)
     }
 
     @Test
@@ -82,6 +112,7 @@ class BudgetsViewModelTest {
                     testExpense(7000, "2026-05-20T10:00:00Z"),
                 ),
             ),
+            categoryRepository = FakeBudgetCategoryRepository(),
             calculateBudgetProgress = CalculateBudgetProgressUseCase(),
             clock = clock,
         )
@@ -94,18 +125,44 @@ class BudgetsViewModelTest {
         assertEquals(40, progress.percentUsed)
     }
 
-    private fun testBudget(amountMinor: Long): Budget = Budget(
+    @Test
+    fun categoryBudgetProgressOnlyCountsMatchingExpenses() = runTest {
+        val budgetRepository = FakeBudgetRepository(
+            budgets = listOf(testBudget(amountMinor = 10000, categoryId = 1)),
+        )
+        val viewModel = BudgetsViewModel(
+            budgetRepository = budgetRepository,
+            expenseRepository = FakeBudgetExpenseRepository(
+                listOf(
+                    testExpense(4000, "2026-06-20T10:00:00Z", categoryId = 1),
+                    testExpense(7000, "2026-06-20T10:00:00Z", categoryId = 2),
+                ),
+            ),
+            categoryRepository = FakeBudgetCategoryRepository(),
+            calculateBudgetProgress = CalculateBudgetProgressUseCase(),
+            clock = clock,
+        )
+        backgroundScope.launch { viewModel.uiState.collect {} }
+        advanceUntilIdle()
+
+        val progress = viewModel.uiState.value.budgetProgress.single()
+        assertEquals(1L, progress.budget.categoryId)
+        assertEquals(4000, progress.spentMinor)
+        assertEquals(40, progress.percentUsed)
+    }
+
+    private fun testBudget(amountMinor: Long, categoryId: Long? = null): Budget = Budget(
         id = 1,
         name = "Monthly cap",
         amountMinor = amountMinor,
         currency = "EUR",
         period = BudgetPeriod.Monthly,
-        categoryId = null,
+        categoryId = categoryId,
         notificationThresholdPercent = 80,
         enabled = true,
     )
 
-    private fun testExpense(amountMinor: Long, instant: String): Expense {
+    private fun testExpense(amountMinor: Long, instant: String, categoryId: Long = 1): Expense {
         val dateTime = Instant.parse(instant)
         return Expense(
             id = 0,
@@ -113,7 +170,7 @@ class BudgetsViewModelTest {
             amountMinor = amountMinor,
             currency = "EUR",
             dateTime = dateTime,
-            categoryId = 1,
+            categoryId = categoryId,
             merchant = "Merchant",
             paymentMethodId = null,
             notes = "",
@@ -122,6 +179,34 @@ class BudgetsViewModelTest {
             updatedAt = dateTime,
         )
     }
+}
+
+private class FakeBudgetCategoryRepository : CategoryRepository {
+    override fun observeCategories(includeArchived: Boolean): Flow<List<Category>> =
+        flowOf(
+            listOf(
+                Category(
+                    id = 1,
+                    name = "Food",
+                    color = 0xFF00AA00,
+                    iconKey = "food",
+                    sortOrder = 0,
+                    archived = false,
+                ),
+                Category(
+                    id = 2,
+                    name = "Transport",
+                    color = 0xFF3366AA,
+                    iconKey = "transport",
+                    sortOrder = 1,
+                    archived = false,
+                ),
+            ),
+        )
+
+    override suspend fun save(category: Category): Long = error("Not used")
+
+    override suspend fun archive(categoryId: Long) = error("Not used")
 }
 
 private class FakeBudgetRepository(

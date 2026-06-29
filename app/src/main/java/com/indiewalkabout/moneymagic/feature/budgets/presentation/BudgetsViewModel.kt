@@ -7,6 +7,8 @@ import com.indiewalkabout.moneymagic.feature.budgets.domain.model.Budget
 import com.indiewalkabout.moneymagic.feature.budgets.domain.model.BudgetPeriod
 import com.indiewalkabout.moneymagic.feature.budgets.domain.model.BudgetProgress
 import com.indiewalkabout.moneymagic.feature.budgets.domain.repository.BudgetRepository
+import com.indiewalkabout.moneymagic.feature.expenses.domain.model.Category
+import com.indiewalkabout.moneymagic.feature.expenses.domain.repository.CategoryRepository
 import com.indiewalkabout.moneymagic.feature.expenses.domain.repository.ExpenseRepository
 import com.indiewalkabout.moneymagic.feature.budgets.domain.usecase.CalculateBudgetProgressUseCase
 import com.indiewalkabout.moneymagic.presentation.common.calculateCurrentBudgetProgress
@@ -27,6 +29,8 @@ data class BudgetsUiState(
     val name: String = "",
     val amount: String = "",
     val thresholdPercent: String = "80",
+    val selectedCategoryId: Long? = null,
+    val categories: List<Category> = emptyList(),
     val budgetProgress: List<BudgetProgress> = emptyList(),
     val canSave: Boolean = false,
     val errorMessage: BudgetError? = null,
@@ -42,6 +46,7 @@ enum class BudgetError {
 class BudgetsViewModel @Inject constructor(
     private val budgetRepository: BudgetRepository,
     expenseRepository: ExpenseRepository,
+    categoryRepository: CategoryRepository,
     private val calculateBudgetProgress: CalculateBudgetProgressUseCase,
     private val clock: Clock,
     private val periodCalculator: PeriodCalculator = PeriodCalculator(),
@@ -53,8 +58,10 @@ class BudgetsViewModel @Inject constructor(
             formState.asStateFlow(),
             budgetRepository.observeBudgets(),
             expenseRepository.observeExpenses(),
-        ) { form, budgets, expenses ->
+            categoryRepository.observeCategories(),
+        ) { form, budgets, expenses, categories ->
             form.copy(
+                categories = categories,
                 budgetProgress = calculateCurrentBudgetProgress(
                     budgets = budgets,
                     expenses = expenses,
@@ -80,6 +87,12 @@ class BudgetsViewModel @Inject constructor(
     fun onThresholdChanged(thresholdPercent: String) {
         formState.update { state ->
             state.copy(thresholdPercent = thresholdPercent, errorMessage = null).withSaveEligibility()
+        }
+    }
+
+    fun onCategorySelected(categoryId: Long?) {
+        formState.update { state ->
+            state.copy(selectedCategoryId = categoryId, errorMessage = null).withSaveEligibility()
         }
     }
 
@@ -113,7 +126,7 @@ class BudgetsViewModel @Inject constructor(
                         amountMinor = amountMinor,
                         currency = "EUR",
                         period = BudgetPeriod.Monthly,
-                        categoryId = null,
+                        categoryId = state.selectedCategoryId,
                         notificationThresholdPercent = thresholdPercent,
                         enabled = true,
                     ),
@@ -124,6 +137,7 @@ class BudgetsViewModel @Inject constructor(
                         name = "",
                         amount = "",
                         thresholdPercent = "80",
+                        selectedCategoryId = null,
                         canSave = false,
                         errorMessage = null,
                         isSaving = false,
