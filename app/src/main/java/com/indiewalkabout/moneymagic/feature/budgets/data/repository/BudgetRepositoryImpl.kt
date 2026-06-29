@@ -1,0 +1,21 @@
+package com.indiewalkabout.moneymagic.feature.budgets.data.repository
+
+import com.indiewalkabout.moneymagic.feature.budgets.data.local.BudgetDao
+import com.indiewalkabout.moneymagic.feature.budgets.domain.model.Budget
+import com.indiewalkabout.moneymagic.feature.budgets.domain.repository.BudgetRepository
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
+import javax.inject.Inject
+
+class BudgetRepositoryImpl @Inject constructor(
+    private val budgetDao: BudgetDao,
+) : BudgetRepository {
+    override fun observeBudgets(): Flow<List<Budget>> =
+        budgetDao.observeBudgets().map { budgets -> budgets.map { it.toDomain() } }
+
+    override suspend fun save(budget: Budget): Long = budgetDao.upsert(budget.toEntity())
+
+    override suspend fun delete(budgetId: Long) {
+        budgetDao.delete(budgetId)
+    }
+}
