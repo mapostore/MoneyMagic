@@ -1,5 +1,6 @@
 package com.indiewalkabout.moneymagic.feature.expenses.presentation
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -23,6 +24,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -36,6 +38,7 @@ import java.util.Locale
 @Composable
 fun ExpensesScreen(
     onAddExpenseClick: () -> Unit,
+    onExpenseClick: (Long) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: ExpensesViewModel = hiltViewModel(),
 ) {
@@ -81,7 +84,7 @@ fun ExpensesScreen(
                     items = uiState.expenses,
                     key = { item -> item.expense.id },
                 ) { item ->
-                    ExpenseCard(item = item)
+                    ExpenseCard(item = item, onClick = { onExpenseClick(item.expense.id) })
                 }
             }
         }
@@ -89,9 +92,17 @@ fun ExpensesScreen(
 }
 
 @Composable
-private fun ExpenseCard(item: ExpenseListItem) {
+private fun ExpenseCard(
+    item: ExpenseListItem,
+    onClick: () -> Unit,
+) {
     val expense = item.expense
-    Card(modifier = Modifier.fillMaxWidth()) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("expense_card_${expense.id}")
+            .clickable(onClick = onClick),
+    ) {
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp),

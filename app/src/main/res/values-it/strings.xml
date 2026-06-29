@@ -23,6 +23,10 @@
     <string name="sort_most_expensive">Più costose</string>
     <string name="sort_least_expensive">Meno costose</string>
     <string name="add_expense_title">Aggiungi spesa</string>
+    <string name="expense_detail_title">Dettaglio spesa</string>
+    <string name="expense_missing">Spesa non trovata.</string>
+    <string name="deleting">Eliminazione</string>
+    <string name="unable_delete_expense">Impossibile eliminare la spesa. Riprova.</string>
     <string name="cancel">Annulla</string>
     <string name="expense_name">Nome spesa</string>
     <string name="amount">Importo</string>

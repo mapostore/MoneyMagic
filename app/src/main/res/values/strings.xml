@@ -23,6 +23,10 @@
     <string name="sort_most_expensive">Most expensive</string>
     <string name="sort_least_expensive">Least expensive</string>
     <string name="add_expense_title">Add expense</string>
+    <string name="expense_detail_title">Expense detail</string>
+    <string name="expense_missing">Expense not found.</string>
+    <string name="deleting">Deleting</string>
+    <string name="unable_delete_expense">Unable to delete expense. Please try again.</string>
     <string name="cancel">Cancel</string>
     <string name="expense_name">Expense name</string>
     <string name="amount">Amount</string>

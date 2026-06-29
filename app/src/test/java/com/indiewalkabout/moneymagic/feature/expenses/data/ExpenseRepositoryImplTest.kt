@@ -78,6 +78,40 @@ class ExpenseRepositoryImplTest {
     }
 
     @Test
+    fun observesExpenseById() = runTest {
+        database.categoryDao().upsert(testCategory())
+        val savedId = repository.save(testExpense())
+
+        val expense = repository.observeExpense(savedId).first()
+
+        assertEquals(savedId, expense?.id)
+        assertEquals("Bakery", expense?.name)
+    }
+
+    @Test
+    fun saveWithExistingIdUpdatesExpense() = runTest {
+        database.categoryDao().upsert(testCategory())
+        val savedId = repository.save(testExpense())
+
+        repository.save(testExpense(id = savedId).copy(name = "Updated", amountMinor = 2500))
+
+        val expense = repository.observeExpense(savedId).first()
+        assertEquals("Updated", expense?.name)
+        assertEquals(2500L, expense?.amountMinor)
+        assertEquals(1, repository.observeExpenses().first().size)
+    }
+
+    @Test
+    fun deleteRemovesExpenseAndSingleObserverEmitsNull() = runTest {
+        database.categoryDao().upsert(testCategory())
+        val savedId = repository.save(testExpense())
+
+        repository.delete(savedId)
+
+        assertEquals(null, repository.observeExpense(savedId).first())
+    }
+
+    @Test
     fun seededFreshDatabaseSavesExpenseWithDefaultFoodCategory() = runTest {
         val seededDatabase = Room.inMemoryDatabaseBuilder(
             ApplicationProvider.getApplicationContext(),
@@ -216,11 +250,13 @@ class ExpenseRepositoryImplTest {
     )
 
     private fun testExpense(
+        id: Long = 0,
         categoryId: Long = 1,
         paymentMethodId: Long? = null,
     ): Expense {
         val now = Instant.parse("2026-06-22T10:00:00Z")
         return Expense(
+            id = id,
             name = "Bakery",
             amountMinor = 1250,
             currency = "EUR",

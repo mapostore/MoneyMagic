@@ -2,9 +2,11 @@ package com.indiewalkabout.moneymagic
 
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -50,6 +52,23 @@ class MoneyMagicNavigationTest {
 
         composeRule.onNodeWithText("Budget progress").assertExists()
         composeRule.onNodeWithTag("bottom_nav_dashboard").assertExists()
+    }
+
+    @Test
+    fun expenseDetailRouteOpensFromHistoryAndCanCancelBack() {
+        composeRule.onNodeWithTag("bottom_nav_expenses").performClick()
+
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasTestTag("expense_card_102"))
+        composeRule.onNodeWithTag("expense_card_102").performClick()
+
+        composeRule.onNodeWithText("Expense detail").assertExists()
+        composeRule.onAllNodesWithText("Weekly groceries").assertCountEquals(2)
+        composeRule.onAllNodesWithTag("bottom_nav_expenses").assertCountEquals(0)
+
+        composeRule.onNodeWithText("Cancel").performClick()
+
+        composeRule.onNodeWithText("Expense history").assertExists()
+        composeRule.onNodeWithTag("bottom_nav_expenses").assertExists()
     }
 
     @Test

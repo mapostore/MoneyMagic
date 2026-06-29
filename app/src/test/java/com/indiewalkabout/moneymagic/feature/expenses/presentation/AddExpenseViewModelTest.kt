@@ -117,6 +117,8 @@ private class FakeExpenseRepository(
 
     override fun observeExpenses(): Flow<List<Expense>> = emptyFlow()
 
+    override fun observeExpense(expenseId: Long): Flow<Expense?> = emptyFlow()
+
     override suspend fun save(expense: Expense): Long {
         if (saveDelayMillis > 0) {
             delay(saveDelayMillis)

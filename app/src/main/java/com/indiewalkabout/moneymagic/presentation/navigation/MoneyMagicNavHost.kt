@@ -20,6 +20,7 @@ import com.indiewalkabout.moneymagic.R
 import com.indiewalkabout.moneymagic.feature.budgets.presentation.BudgetsScreen
 import com.indiewalkabout.moneymagic.feature.dashboard.presentation.DashboardScreen
 import com.indiewalkabout.moneymagic.feature.expenses.presentation.AddExpenseScreen
+import com.indiewalkabout.moneymagic.feature.expenses.presentation.ExpenseDetailScreen
 import com.indiewalkabout.moneymagic.feature.expenses.presentation.ExpensesScreen
 import com.indiewalkabout.moneymagic.feature.settings.presentation.SettingsScreen
 import kotlinx.serialization.Serializable
@@ -73,7 +74,10 @@ fun MoneyMagicNavHost(modifier: Modifier = Modifier) {
                     DashboardScreen(onAddExpenseClick = { backStack.add(AddExpenseRoute) })
                 }
                 entry<ExpensesRoute> {
-                    ExpensesScreen(onAddExpenseClick = { backStack.add(AddExpenseRoute) })
+                    ExpensesScreen(
+                        onAddExpenseClick = { backStack.add(AddExpenseRoute) },
+                        onExpenseClick = { expenseId -> backStack.add(ExpenseDetailRoute(expenseId)) },
+                    )
                 }
                 entry<AddExpenseRoute> {
                     AddExpenseScreen(
@@ -91,6 +95,26 @@ fun MoneyMagicNavHost(modifier: Modifier = Modifier) {
                 }
                 entry<BudgetsRoute> { BudgetsScreen() }
                 entry<SettingsRoute> { SettingsScreen() }
+                entry<ExpenseDetailRoute> { route ->
+                    ExpenseDetailScreen(
+                        expenseId = route.expenseId,
+                        onBack = {
+                            if (backStack.size > 1) {
+                                backStack.removeAt(backStack.lastIndex)
+                            }
+                        },
+                        onSaved = {
+                            if (backStack.size > 1) {
+                                backStack.removeAt(backStack.lastIndex)
+                            }
+                        },
+                        onDeleted = {
+                            if (backStack.size > 1) {
+                                backStack.removeAt(backStack.lastIndex)
+                            }
+                        },
+                    )
+                }
             },
         )
     }
@@ -117,6 +141,9 @@ internal data object ExpensesRoute : MoneyMagicRoute
 
 @Serializable
 internal data object AddExpenseRoute : MoneyMagicRoute
+
+@Serializable
+internal data class ExpenseDetailRoute(val expenseId: Long) : MoneyMagicRoute
 
 @Serializable
 internal data object BudgetsRoute : MoneyMagicRoute
