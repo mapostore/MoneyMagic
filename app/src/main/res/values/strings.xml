@@ -2,6 +2,16 @@
     <string name="app_name">MoneyMagic</string>
     <string name="dashboard_title">Dashboard</string>
     <string name="add_expense">Add expense</string>
+    <string name="scan_receipt">Scan receipt</string>
+    <string name="receipt_capture_title">Scan receipt</string>
+    <string name="select_receipt_image">Select image</string>
+    <string name="scan_with_camera">Use camera</string>
+    <string name="scanning_receipt">Scanning</string>
+    <string name="receipt_draft">Receipt draft</string>
+    <string name="recognized_text">Recognized text</string>
+    <string name="review_expense">Review expense</string>
+    <string name="receipt_scan_failed">Unable to scan receipt. Try another image.</string>
+    <string name="receipt_no_text_found">No text found in this image.</string>
     <string name="budget_progress">Budget progress</string>
     <string name="budget_progress_status">%1$d%% used - %2$s remaining</string>
     <string name="spent_of">%1$s spent of %2$s</string>

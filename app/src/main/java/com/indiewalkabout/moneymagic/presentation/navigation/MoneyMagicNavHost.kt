@@ -18,8 +18,10 @@ import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
 import com.indiewalkabout.moneymagic.R
 import com.indiewalkabout.moneymagic.feature.budgets.presentation.BudgetsScreen
+import com.indiewalkabout.moneymagic.feature.capture.presentation.ReceiptCaptureScreen
 import com.indiewalkabout.moneymagic.feature.dashboard.presentation.DashboardScreen
 import com.indiewalkabout.moneymagic.feature.expenses.presentation.AddExpenseScreen
+import com.indiewalkabout.moneymagic.feature.expenses.presentation.ExpenseDraftInput
 import com.indiewalkabout.moneymagic.feature.expenses.presentation.ExpenseDetailScreen
 import com.indiewalkabout.moneymagic.feature.expenses.presentation.ExpensesScreen
 import com.indiewalkabout.moneymagic.feature.settings.presentation.SettingsScreen
@@ -71,16 +73,20 @@ fun MoneyMagicNavHost(modifier: Modifier = Modifier) {
             },
             entryProvider = entryProvider {
                 entry<DashboardRoute> {
-                    DashboardScreen(onAddExpenseClick = { backStack.add(AddExpenseRoute) })
+                    DashboardScreen(
+                        onAddExpenseClick = { backStack.add(AddExpenseRoute()) },
+                        onScanReceiptClick = { backStack.add(ReceiptCaptureRoute) },
+                    )
                 }
                 entry<ExpensesRoute> {
                     ExpensesScreen(
-                        onAddExpenseClick = { backStack.add(AddExpenseRoute) },
+                        onAddExpenseClick = { backStack.add(AddExpenseRoute()) },
                         onExpenseClick = { expenseId -> backStack.add(ExpenseDetailRoute(expenseId)) },
                     )
                 }
-                entry<AddExpenseRoute> {
+                entry<AddExpenseRoute> { route ->
                     AddExpenseScreen(
+                        initialDraft = route.toDraftInput(),
                         onSaved = {
                             if (backStack.size > 1) {
                                 backStack.removeAt(backStack.lastIndex)
@@ -90,6 +96,26 @@ fun MoneyMagicNavHost(modifier: Modifier = Modifier) {
                             if (backStack.size > 1) {
                                 backStack.removeAt(backStack.lastIndex)
                             }
+                        },
+                    )
+                }
+                entry<ReceiptCaptureRoute> {
+                    ReceiptCaptureScreen(
+                        onBack = {
+                            if (backStack.size > 1) {
+                                backStack.removeAt(backStack.lastIndex)
+                            }
+                        },
+                        onReviewExpense = { draft ->
+                            backStack.add(
+                                AddExpenseRoute(
+                                    draftName = draft.name.takeIf { it.isNotBlank() },
+                                    draftAmount = draft.amount.takeIf { it.isNotBlank() },
+                                    draftDate = draft.date.takeIf { it.isNotBlank() },
+                                    draftMerchant = draft.merchant.takeIf { it.isNotBlank() },
+                                    draftNotes = draft.rawText.takeIf { it.isNotBlank() },
+                                ),
+                            )
                         },
                     )
                 }
@@ -140,7 +166,16 @@ internal data object DashboardRoute : MoneyMagicRoute
 internal data object ExpensesRoute : MoneyMagicRoute
 
 @Serializable
-internal data object AddExpenseRoute : MoneyMagicRoute
+internal data class AddExpenseRoute(
+    val draftName: String? = null,
+    val draftAmount: String? = null,
+    val draftDate: String? = null,
+    val draftMerchant: String? = null,
+    val draftNotes: String? = null,
+) : MoneyMagicRoute
+
+@Serializable
+internal data object ReceiptCaptureRoute : MoneyMagicRoute
 
 @Serializable
 internal data class ExpenseDetailRoute(val expenseId: Long) : MoneyMagicRoute
@@ -150,3 +185,16 @@ internal data object BudgetsRoute : MoneyMagicRoute
 
 @Serializable
 internal data object SettingsRoute : MoneyMagicRoute
+
+private fun AddExpenseRoute.toDraftInput(): ExpenseDraftInput? {
+    if (listOf(draftName, draftAmount, draftDate, draftMerchant, draftNotes).all { it.isNullOrBlank() }) {
+        return null
+    }
+    return ExpenseDraftInput(
+        name = draftName,
+        amount = draftAmount,
+        date = draftDate,
+        merchant = draftMerchant,
+        notes = draftNotes,
+    )
+}

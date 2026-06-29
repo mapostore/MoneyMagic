@@ -41,6 +41,14 @@ data class AddExpenseUiState(
     val isSaved: Boolean = false,
 )
 
+data class ExpenseDraftInput(
+    val name: String? = null,
+    val amount: String? = null,
+    val date: String? = null,
+    val merchant: String? = null,
+    val notes: String? = null,
+)
+
 enum class AddExpenseError {
     EnterAmount,
     AmountMustBePositive,
@@ -128,6 +136,20 @@ class AddExpenseViewModel @Inject constructor(
     fun onNotesChanged(notes: String) {
         _uiState.update { state ->
             state.copy(notes = notes, isSaved = false)
+        }
+    }
+
+    fun applyDraft(draft: ExpenseDraftInput) {
+        _uiState.update { state ->
+            state.copy(
+                name = draft.name?.takeIf { it.isNotBlank() } ?: state.name,
+                amount = draft.amount?.takeIf { it.isNotBlank() } ?: state.amount,
+                date = draft.date?.takeIf { it.isNotBlank() } ?: state.date,
+                merchant = draft.merchant?.takeIf { it.isNotBlank() } ?: state.merchant,
+                notes = draft.notes?.takeIf { it.isNotBlank() } ?: state.notes,
+                isSaved = false,
+                errorMessage = null,
+            ).withSaveEligibility()
         }
     }
 

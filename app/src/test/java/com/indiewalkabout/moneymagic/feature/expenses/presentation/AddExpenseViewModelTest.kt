@@ -99,6 +99,27 @@ class AddExpenseViewModelTest {
         assertEquals(1, repository.savedCount)
     }
 
+    @Test
+    fun applyDraftPrefillsExpenseForm() = runTest {
+        val viewModel = testViewModel(FakeExpenseRepository())
+
+        viewModel.applyDraft(
+            ExpenseDraftInput(
+                name = "Fresh Market",
+                amount = "12.34",
+                date = "2026-06-24",
+                merchant = "Fresh Market",
+                notes = "Recognized from receipt",
+            ),
+        )
+
+        assertEquals("Fresh Market", viewModel.uiState.value.name)
+        assertEquals("12.34", viewModel.uiState.value.amount)
+        assertEquals("2026-06-24", viewModel.uiState.value.date)
+        assertEquals("Fresh Market", viewModel.uiState.value.merchant)
+        assertEquals("Recognized from receipt", viewModel.uiState.value.notes)
+    }
+
     private fun testViewModel(repository: ExpenseRepository): AddExpenseViewModel =
         AddExpenseViewModel(
             expenseRepository = repository,

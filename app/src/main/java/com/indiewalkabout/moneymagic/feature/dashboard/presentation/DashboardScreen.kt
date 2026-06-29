@@ -25,6 +25,7 @@ import java.util.Locale
 @Composable
 fun DashboardScreen(
     onAddExpenseClick: () -> Unit,
+    onScanReceiptClick: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: DashboardViewModel = hiltViewModel(),
 ) {
@@ -43,11 +44,19 @@ fun DashboardScreen(
             )
         }
         item {
-            Button(
-                onClick = onAddExpenseClick,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(stringResource(R.string.add_expense))
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    onClick = onAddExpenseClick,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(stringResource(R.string.add_expense))
+                }
+                Button(
+                    onClick = onScanReceiptClick,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(stringResource(R.string.scan_receipt))
+                }
             }
         }
         item { SectionTitle(text = stringResource(R.string.budget_progress)) }

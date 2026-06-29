@@ -41,10 +41,15 @@ import com.indiewalkabout.moneymagic.feature.expenses.domain.model.PaymentMethod
 fun AddExpenseScreen(
     onSaved: () -> Unit,
     onBack: () -> Unit,
+    initialDraft: ExpenseDraftInput? = null,
     modifier: Modifier = Modifier,
     viewModel: AddExpenseViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    LaunchedEffect(initialDraft) {
+        initialDraft?.let(viewModel::applyDraft)
+    }
 
     LaunchedEffect(uiState.isSaved) {
         if (uiState.isSaved) {

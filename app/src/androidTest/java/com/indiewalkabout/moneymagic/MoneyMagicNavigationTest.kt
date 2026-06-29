@@ -55,6 +55,20 @@ class MoneyMagicNavigationTest {
     }
 
     @Test
+    fun receiptCaptureRouteHidesBottomNavigationAndCanCancelBack() {
+        composeRule.onNodeWithText("Scan receipt").performClick()
+
+        composeRule.onNodeWithText("Select image").assertExists()
+        composeRule.onNodeWithText("Use camera").assertExists()
+        composeRule.onAllNodesWithTag("bottom_nav_dashboard").assertCountEquals(0)
+
+        composeRule.onNodeWithText("Cancel").performClick()
+
+        composeRule.onNodeWithText("Budget progress").assertExists()
+        composeRule.onNodeWithTag("bottom_nav_dashboard").assertExists()
+    }
+
+    @Test
     fun expenseDetailRouteOpensFromHistoryAndCanCancelBack() {
         composeRule.onNodeWithTag("bottom_nav_expenses").performClick()
 

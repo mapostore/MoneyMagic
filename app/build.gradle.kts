@@ -70,6 +70,7 @@ dependencies {
     implementation(libs.androidx.hilt.navigation.compose)
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
+    implementation(libs.google.mlkit.text.recognition)
     coreLibraryDesugaring(libs.desugar.jdk.libs)
     ksp(libs.google.hilt.compiler)
     ksp(libs.androidx.room.compiler)
