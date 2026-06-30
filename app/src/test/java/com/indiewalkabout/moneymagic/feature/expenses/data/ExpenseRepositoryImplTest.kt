@@ -129,9 +129,8 @@ class ExpenseRepositoryImplTest {
             val budgets = seededBudgetRepository.observeBudgets().first()
             val categories = seededDatabase.categoryDao().observeCategories(includeArchived = true).first()
             assertTrue(expenses.any { it.merchant == "Bakery" })
-            assertTrue(expenses.any { it.merchant == "Fresh Market" })
-            assertTrue(budgets.any { it.name == "Monthly spending cap" })
-            assertTrue(budgets.any { it.name == "Food monthly" })
+            assertTrue(expenses.none { it.tags.contains("demo") })
+            assertTrue(budgets.isEmpty())
             assertEquals("Food", categories.first { it.id == 1L }.name)
         } finally {
             seededDatabase.close()

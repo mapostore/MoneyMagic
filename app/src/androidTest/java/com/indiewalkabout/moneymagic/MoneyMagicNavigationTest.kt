@@ -6,7 +6,6 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.hasScrollAction
-import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -70,13 +69,21 @@ class MoneyMagicNavigationTest {
 
     @Test
     fun expenseDetailRouteOpensFromHistoryAndCanCancelBack() {
+        val expenseName = "Navigation detail expense"
+        composeRule.onNodeWithText("Add expense").performClick()
+        composeRule.onNodeWithText("Expense name").performTextInput(expenseName)
+        composeRule.onNodeWithText("Amount").performTextInput("12.34")
+        composeRule.onNodeWithText("Select category").performClick()
+        composeRule.onNodeWithText("Food").performClick()
+        composeRule.onNodeWithText("Save").performClick()
+
         composeRule.onNodeWithTag("bottom_nav_expenses").performClick()
 
-        composeRule.onNode(hasScrollAction()).performScrollToNode(hasTestTag("expense_card_102"))
-        composeRule.onNodeWithTag("expense_card_102").performClick()
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText(expenseName))
+        composeRule.onNodeWithText(expenseName).performClick()
 
         composeRule.onNodeWithText("Expense detail").assertExists()
-        composeRule.onAllNodesWithText("Weekly groceries").assertCountEquals(2)
+        composeRule.onAllNodesWithText(expenseName).assertCountEquals(2)
         composeRule.onAllNodesWithTag("bottom_nav_expenses").assertCountEquals(0)
 
         composeRule.onNodeWithText("Cancel").performClick()

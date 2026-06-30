@@ -49,6 +49,9 @@
     <string name="save">Save</string>
     <string name="saving">Saving</string>
     <string name="settings_title">Settings</string>
+    <string name="export_data">Export data</string>
+    <string name="export_expenses_excel">Export expenses Excel</string>
+    <string name="export_expenses_excel_empty">No expenses to export</string>
     <string name="categories">Categories</string>
     <string name="payment_methods">Payment methods</string>
     <string name="category_name">Category name</string>

@@ -1,5 +1,9 @@
 package com.indiewalkabout.moneymagic.feature.settings.presentation
 
+import android.content.Context
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -25,6 +29,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -40,6 +45,19 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    var pendingExport by remember { mutableStateOf<ByteArray?>(null) }
+    val exportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument(
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        ),
+    ) { uri ->
+        val bytes = pendingExport
+        pendingExport = null
+        if (uri != null && bytes != null) {
+            context.writeBytes(uri, bytes)
+        }
+    }
 
     LazyColumn(
         modifier = modifier
@@ -51,6 +69,15 @@ fun SettingsScreen(
             Text(
                 text = stringResource(R.string.settings_title),
                 style = MaterialTheme.typography.headlineMedium,
+            )
+        }
+        item {
+            ExportSection(
+                uiState = uiState,
+                onExport = {
+                    pendingExport = viewModel.createExpenseExport()
+                    exportLauncher.launch("moneymagic-expenses.xlsx")
+                },
             )
         }
         item {
@@ -72,6 +99,29 @@ fun SettingsScreen(
                 onClear = viewModel::clearPaymentMethodForm,
                 onEdit = viewModel::editPaymentMethod,
                 onDelete = { paymentMethod -> viewModel.deletePaymentMethod(paymentMethod.id) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun ExportSection(
+    uiState: SettingsUiState,
+    onExport: () -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(text = stringResource(R.string.export_data), style = MaterialTheme.typography.titleMedium)
+        Button(
+            onClick = onExport,
+            enabled = uiState.expenses.isNotEmpty(),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(stringResource(R.string.export_expenses_excel))
+        }
+        if (uiState.expenses.isEmpty()) {
+            Text(
+                text = stringResource(R.string.export_expenses_excel_empty),
+                style = MaterialTheme.typography.bodySmall,
             )
         }
     }
@@ -239,3 +289,9 @@ private fun PaymentMethodType.label(): String =
             PaymentMethodType.Other -> R.string.other
         },
     )
+
+private fun Context.writeBytes(uri: Uri, bytes: ByteArray) {
+    contentResolver.openOutputStream(uri)?.use { output ->
+        output.write(bytes)
+    }
+}
