@@ -1,6 +1,8 @@
 package com.indiewalkabout.moneymagic.feature.capture.domain.usecase
 
 import com.indiewalkabout.moneymagic.feature.capture.domain.model.ReceiptDraft
+import com.indiewalkabout.moneymagic.feature.capture.domain.model.ReceiptFieldConfidence
+import com.indiewalkabout.moneymagic.feature.capture.domain.model.ReceiptParseMetadata
 import java.math.BigDecimal
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -16,12 +18,31 @@ class ParseReceiptTextUseCase @Inject constructor() {
             .filter { it.isNotBlank() }
             .toList()
         val merchant = lines.firstOrNull(::looksLikeMerchant).orEmpty()
+        val amount = findTotalAmount(lines).orEmpty()
+        val date = findDate(lines).orEmpty()
         return ReceiptDraft(
             name = merchant,
             merchant = merchant,
-            amount = findTotalAmount(lines).orEmpty(),
-            date = findDate(lines).orEmpty(),
+            amount = amount,
+            date = date,
             rawText = text,
+            metadata = ReceiptParseMetadata(
+                merchantConfidence = if (merchant.isBlank()) {
+                    ReceiptFieldConfidence.Missing
+                } else {
+                    ReceiptFieldConfidence.High
+                },
+                amountConfidence = if (amount.isBlank()) {
+                    ReceiptFieldConfidence.Missing
+                } else {
+                    ReceiptFieldConfidence.Medium
+                },
+                dateConfidence = if (date.isBlank()) {
+                    ReceiptFieldConfidence.Missing
+                } else {
+                    ReceiptFieldConfidence.High
+                },
+            ),
         )
     }
 }

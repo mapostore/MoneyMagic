@@ -1,5 +1,6 @@
 package com.indiewalkabout.moneymagic.feature.capture.domain.usecase
 
+import com.indiewalkabout.moneymagic.feature.capture.domain.model.ReceiptFieldConfidence
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -55,5 +56,20 @@ class ParseReceiptTextUseCaseTest {
 
         assertEquals("Corner Cafe", draft.merchant)
         assertEquals("6.40", draft.amount)
+    }
+
+    @Test
+    fun marksRiskyFallbackAmountAsMediumConfidence() {
+        val draft = parseReceiptText(
+            """
+            Corner Cafe
+            Espresso 1.20
+            Sandwich 6.40
+            Tax 0.30
+            """.trimIndent(),
+        )
+
+        assertEquals("6.40", draft.amount)
+        assertEquals(ReceiptFieldConfidence.Medium, draft.metadata.amountConfidence)
     }
 }

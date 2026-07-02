@@ -6,4 +6,5 @@ data class ReceiptDraft(
     val amount: String = "",
     val date: String = "",
     val rawText: String = "",
+    val metadata: ReceiptParseMetadata = ReceiptParseMetadata(),
 )
