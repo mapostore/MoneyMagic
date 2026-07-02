@@ -163,6 +163,17 @@ class ParseReceiptTextUseCaseTest {
     }
 
     @Test
+    fun keepsMerchantNamesThatContainLabelWords() {
+        val timeMarket = parseReceiptText("Time Market\nTotal 12.00")
+        val dateCafe = parseReceiptText("Date Cafe\nTotal 8.00")
+        val receiptBank = parseReceiptText("Receipt Bank\nTotal 20.00")
+
+        assertEquals("Time Market", timeMarket.merchant)
+        assertEquals("Date Cafe", dateCafe.merchant)
+        assertEquals("Receipt Bank", receiptBank.merchant)
+    }
+
+    @Test
     fun parsesItalianMonthNameDateAndSkipsFiscalHeader() {
         val draft = parseReceiptText(
             """
@@ -205,6 +216,20 @@ class ParseReceiptTextUseCaseTest {
         )
 
         assertEquals("2026-06-24", draft.date)
+        assertEquals(ReceiptFieldConfidence.High, draft.metadata.dateConfidence)
+    }
+
+    @Test
+    fun parsesAmbiguousEnglishMonthFirstDateWhenDateLabelIsEnglish() {
+        val draft = parseReceiptText(
+            """
+            City Pharmacy
+            Date 06/07/2026
+            Total 9.99
+            """.trimIndent(),
+        )
+
+        assertEquals("2026-06-07", draft.date)
         assertEquals(ReceiptFieldConfidence.High, draft.metadata.dateConfidence)
     }
 }

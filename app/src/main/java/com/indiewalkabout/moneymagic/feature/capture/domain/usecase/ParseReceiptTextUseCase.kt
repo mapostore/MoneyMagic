@@ -86,14 +86,19 @@ private val weakAmountKeywords = listOf(
     "transaction",
 )
 
-private val nonMerchantKeywords = listOf(
+private val nonMerchantExactLabels = listOf(
     "scontrino",
+    "scontrino fiscale",
     "ricevuta",
+    "ricevuta fiscale",
     "fattura",
     "documento commerciale",
     "receipt",
     "invoice",
     "tax receipt",
+)
+
+private val dateTimeLabelKeywords = listOf(
     "date",
     "data",
     "ora",
@@ -116,6 +121,7 @@ private val merchantPaymentSignals = listOf(
 private val isoDatePattern = Regex("""\b(\d{4})-(\d{2})-(\d{2})\b""")
 private val dayFirstDatePattern = Regex("""\b(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})\b""")
 private val longDigitSequencePattern = Regex("""\d{4,}""")
+private val timePattern = Regex("""\b\d{1,2}:\d{2}\b""")
 private val monthNameDatePatterns = listOf(
     Regex("""\b(\d{1,2})\s+([A-Za-zÀ-ÿ]{3,})\s+(\d{2,4})\b""", RegexOption.IGNORE_CASE),
     Regex("""\b([A-Za-zÀ-ÿ]{3,})\s+(\d{1,2}),?\s+(\d{2,4})\b""", RegexOption.IGNORE_CASE),
@@ -153,11 +159,23 @@ private fun looksLikeMerchant(line: String): Boolean {
     val digits = line.count(Char::isDigit)
     return letters >= 3 &&
         letters >= digits &&
-        !matchesAnyKeyword(line, nonMerchantKeywords) &&
+        !isNonMerchantLabelLine(line) &&
         !matchesAnyKeyword(line, strongTotalKeywords) &&
         !isPaymentOrAdjustmentLine(line) &&
         moneyPattern.find(line) == null &&
         parseDate(line) == null
+}
+
+private fun isNonMerchantLabelLine(line: String): Boolean {
+    val normalized = line.trim()
+        .split(Regex("""\s+"""))
+        .joinToString(" ")
+        .lowercase(Locale.ROOT)
+    return nonMerchantExactLabels.any { normalized == it } ||
+        (
+            matchesAnyKeyword(line, dateTimeLabelKeywords) &&
+                (parseDate(line) != null || timePattern.containsMatchIn(line))
+            )
 }
 
 private fun isPaymentOrAdjustmentLine(line: String): Boolean {
@@ -287,7 +305,7 @@ private fun parseNumericDate(line: String): ParsedDate? {
     val first = match.groupValues[1].toIntOrNull() ?: return null
     val second = match.groupValues[2].toIntOrNull() ?: return null
     val year = normalizeYear(match.groupValues[3])
-    val monthFirst = matchesAnyKeyword(line, listOf("date")) && first in 1..12 && second in 13..31
+    val monthFirst = matchesAnyKeyword(line, listOf("date")) && first in 1..12 && second in 1..31
     val day = if (monthFirst) second else first
     val month = if (monthFirst) first else second
     return try {
