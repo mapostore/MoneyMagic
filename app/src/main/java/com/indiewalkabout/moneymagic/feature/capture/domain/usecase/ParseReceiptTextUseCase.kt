@@ -101,7 +101,7 @@ private data class ParsedAmount(
 
 private fun looksLikeMerchant(line: String): Boolean {
     val lower = line.lowercase(Locale.ROOT)
-    return strongTotalKeywords.none { lower.contains(it) } &&
+    return !matchesAnyKeyword(line, strongTotalKeywords) &&
         !lower.contains("date") &&
         !lower.contains("data") &&
         moneyPattern.find(line) == null
@@ -134,20 +134,29 @@ private fun amountCandidates(line: String, lineIndex: Int): List<ParsedAmount> {
 private fun scoredAmount(line: String, rawAmount: String, lineIndex: Int): ParsedAmount? {
     val value = parseAmount(rawAmount) ?: return null
     if (value <= BigDecimal.ZERO) return null
-    val lower = line.lowercase(Locale.ROOT)
-    val strong = strongTotalKeywords.any { lower.contains(it) }
-    val weak = weakAmountKeywords.any { lower.contains(it) }
+    val strong = matchesAnyKeyword(line, strongTotalKeywords)
+    val weak = matchesAnyKeyword(line, weakAmountKeywords)
     val score = when {
-        weak -> 10
         strong -> 100
+        weak -> 10
         else -> 40
     }
     val confidence = when {
-        weak -> ReceiptFieldConfidence.Low
         strong -> ReceiptFieldConfidence.High
+        weak -> ReceiptFieldConfidence.Low
         else -> ReceiptFieldConfidence.Medium
     }
     return ParsedAmount(value = value, confidence = confidence, score = score, lineIndex = lineIndex)
+}
+
+private fun matchesAnyKeyword(line: String, keywords: List<String>): Boolean =
+    keywords.any { keyword -> keyword.toKeywordRegex().containsMatchIn(line) }
+
+private fun String.toKeywordRegex(): Regex {
+    val phrase = trim()
+        .split(Regex("""\s+"""))
+        .joinToString("""\s+""") { Regex.escape(it) }
+    return Regex("""(?<![\p{L}\p{N}])$phrase(?![\p{L}\p{N}])""", RegexOption.IGNORE_CASE)
 }
 
 private fun parseAmount(amount: String): BigDecimal? {

@@ -114,7 +114,25 @@ class ParseReceiptTextUseCaseTest {
         val english = parseReceiptText("Utility Bill\nAmount due EUR 1,234.56")
 
         assertEquals("1234.56", italian.amount)
+        assertEquals(ReceiptFieldConfidence.High, italian.metadata.amountConfidence)
         assertEquals("1234.56", english.amount)
+        assertEquals(ReceiptFieldConfidence.High, english.metadata.amountConfidence)
+    }
+
+    @Test
+    fun keepsEnglishCardPaidTotalConfidenceHigh() {
+        val draft = parseReceiptText("AMOUNT PAID BY CARD EUR 42.80")
+
+        assertEquals("42.80", draft.amount)
+        assertEquals(ReceiptFieldConfidence.High, draft.metadata.amountConfidence)
+    }
+
+    @Test
+    fun keepsItalianCardPaidTotalConfidenceHigh() {
+        val draft = parseReceiptText("Totale pagato carta 42,80")
+
+        assertEquals("42.80", draft.amount)
+        assertEquals(ReceiptFieldConfidence.High, draft.metadata.amountConfidence)
     }
 
     @Test
