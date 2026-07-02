@@ -152,6 +152,17 @@ class ParseReceiptTextUseCaseTest {
     }
 
     @Test
+    fun keepsMerchantNamesThatContainBroadPaymentOrTaxWords() {
+        val cashConverters = parseReceiptText("Cash Converters\nTotal 12.50")
+        val cardFactory = parseReceiptText("Card Factory\nTotal 8.90")
+        val taxAssist = parseReceiptText("TaxAssist\nTotal 20.00")
+
+        assertEquals("Cash Converters", cashConverters.merchant)
+        assertEquals("Card Factory", cardFactory.merchant)
+        assertEquals("TaxAssist", taxAssist.merchant)
+    }
+
+    @Test
     fun parsesItalianMonthNameDateAndSkipsFiscalHeader() {
         val draft = parseReceiptText(
             """
@@ -194,5 +205,6 @@ class ParseReceiptTextUseCaseTest {
         )
 
         assertEquals("2026-06-24", draft.date)
+        assertEquals(ReceiptFieldConfidence.High, draft.metadata.dateConfidence)
     }
 }

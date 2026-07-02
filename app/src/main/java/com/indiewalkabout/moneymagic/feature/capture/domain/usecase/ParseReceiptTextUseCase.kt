@@ -100,8 +100,22 @@ private val nonMerchantKeywords = listOf(
     "time",
 )
 
+private val merchantPaymentSignals = listOf(
+    "pagamento",
+    "payment",
+    "authorization",
+    "auth",
+    "transazione",
+    "transaction",
+    "visa",
+    "mastercard",
+    "bancomat",
+    "pos",
+)
+
 private val isoDatePattern = Regex("""\b(\d{4})-(\d{2})-(\d{2})\b""")
 private val dayFirstDatePattern = Regex("""\b(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})\b""")
+private val longDigitSequencePattern = Regex("""\d{4,}""")
 private val monthNameDatePatterns = listOf(
     Regex("""\b(\d{1,2})\s+([A-Za-zÀ-ÿ]{3,})\s+(\d{2,4})\b""", RegexOption.IGNORE_CASE),
     Regex("""\b([A-Za-zÀ-ÿ]{3,})\s+(\d{1,2}),?\s+(\d{2,4})\b""", RegexOption.IGNORE_CASE),
@@ -141,9 +155,16 @@ private fun looksLikeMerchant(line: String): Boolean {
         letters >= digits &&
         !matchesAnyKeyword(line, nonMerchantKeywords) &&
         !matchesAnyKeyword(line, strongTotalKeywords) &&
-        !matchesAnyKeyword(line, weakAmountKeywords) &&
+        !isPaymentOrAdjustmentLine(line) &&
         moneyPattern.find(line) == null &&
         parseDate(line) == null
+}
+
+private fun isPaymentOrAdjustmentLine(line: String): Boolean {
+    if (!matchesAnyKeyword(line, weakAmountKeywords)) return false
+    return moneyPattern.find(line) != null ||
+        longDigitSequencePattern.containsMatchIn(line) ||
+        matchesAnyKeyword(line, merchantPaymentSignals)
 }
 
 private fun findTotalAmount(lines: List<String>): ParsedAmount? {
@@ -266,8 +287,7 @@ private fun parseNumericDate(line: String): ParsedDate? {
     val first = match.groupValues[1].toIntOrNull() ?: return null
     val second = match.groupValues[2].toIntOrNull() ?: return null
     val year = normalizeYear(match.groupValues[3])
-    val lower = line.lowercase(Locale.ROOT)
-    val monthFirst = lower.contains("date") && first in 1..12 && second in 13..31
+    val monthFirst = matchesAnyKeyword(line, listOf("date")) && first in 1..12 && second in 13..31
     val day = if (monthFirst) second else first
     val month = if (monthFirst) first else second
     return try {
