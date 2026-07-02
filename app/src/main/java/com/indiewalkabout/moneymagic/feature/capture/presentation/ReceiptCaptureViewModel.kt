@@ -55,7 +55,9 @@ class ReceiptCaptureViewModel @Inject constructor(
         viewModelScope.launch {
             recognize()
                 .onSuccess { text ->
-                    val draft = parseReceiptText(text)
+                    val draft = runCatching { parseReceiptText(text) }.getOrElse {
+                        ReceiptDraft(rawText = text)
+                    }
                     _uiState.update {
                         it.copy(
                             isScanning = false,
