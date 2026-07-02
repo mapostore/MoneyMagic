@@ -18,7 +18,8 @@ class ParseReceiptTextUseCase @Inject constructor() {
             .filter { it.isNotBlank() }
             .toList()
         val merchant = lines.firstOrNull(::looksLikeMerchant).orEmpty()
-        val amount = findTotalAmount(lines).orEmpty()
+        val parsedAmount = findTotalAmount(lines)
+        val amount = parsedAmount?.value?.toPlainAmount().orEmpty()
         val date = findDate(lines).orEmpty()
         return ReceiptDraft(
             name = merchant,
@@ -32,11 +33,7 @@ class ParseReceiptTextUseCase @Inject constructor() {
                 } else {
                     ReceiptFieldConfidence.High
                 },
-                amountConfidence = if (amount.isBlank()) {
-                    ReceiptFieldConfidence.Missing
-                } else {
-                    ReceiptFieldConfidence.Medium
-                },
+                amountConfidence = parsedAmount?.confidence ?: ReceiptFieldConfidence.Missing,
                 dateConfidence = if (date.isBlank()) {
                     ReceiptFieldConfidence.Missing
                 } else {
@@ -47,38 +44,135 @@ class ParseReceiptTextUseCase @Inject constructor() {
     }
 }
 
-private val amountPattern = Regex("""(?<!\d)(\d{1,5}(?:[.,]\d{2}))(?!\d)""")
-private val totalKeywords = listOf("total", "totale", "amount", "balance", "paid")
+private val moneyPattern = Regex(
+    pattern = """(?<![\dA-Za-z])(?:€|EUR|EURO|USD|\$)?\s*(\d{1,3}(?:[.,]\d{3})*[.,]\d{2}|\d{1,6}[.,]\d{2})(?![\dA-Za-z])""",
+    option = RegexOption.IGNORE_CASE,
+)
+private val percentPattern = Regex("""\b\d{1,2}(?:[.,]\d{1,2})?\s*%""")
+
+private val strongTotalKeywords = listOf(
+    "totale complessivo",
+    "importo totale",
+    "importo pagato",
+    "importo da pagare",
+    "da pagare",
+    "totale",
+    "pagato",
+    "saldo",
+    "grand total",
+    "amount due",
+    "amount paid",
+    "balance due",
+    "total",
+    "paid",
+)
+
+private val weakAmountKeywords = listOf(
+    "subtotale",
+    "imponibile",
+    "iva",
+    "resto",
+    "sconto",
+    "contanti",
+    "carta",
+    "bancomat",
+    "pos",
+    "transazione",
+    "subtotal",
+    "tax",
+    "vat",
+    "change",
+    "cash",
+    "card",
+    "authorization",
+    "auth",
+    "transaction",
+)
+
 private val isoDatePattern = Regex("""\b(\d{4})-(\d{2})-(\d{2})\b""")
 private val dayFirstDatePattern = Regex("""\b(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})\b""")
 
+private data class ParsedAmount(
+    val value: BigDecimal,
+    val confidence: ReceiptFieldConfidence,
+    val score: Int,
+    val lineIndex: Int,
+)
+
 private fun looksLikeMerchant(line: String): Boolean {
     val lower = line.lowercase(Locale.ROOT)
-    return totalKeywords.none { lower.contains(it) } &&
+    return strongTotalKeywords.none { lower.contains(it) } &&
         !lower.contains("date") &&
         !lower.contains("data") &&
-        amountPattern.find(line) == null
+        moneyPattern.find(line) == null
 }
 
-private fun findTotalAmount(lines: List<String>): String? {
-    val totalLineAmount = lines
-        .asSequence()
-        .filter { line -> totalKeywords.any { line.contains(it, ignoreCase = true) } }
-        .flatMap { line -> amountPattern.findAll(line).map { it.groupValues[1] } }
-        .mapNotNull(::parseAmount)
-        .lastOrNull()
-
-    val fallbackAmount = lines
-        .asSequence()
-        .flatMap { line -> amountPattern.findAll(line).map { it.groupValues[1] } }
-        .mapNotNull(::parseAmount)
-        .maxOrNull()
-
-    return (totalLineAmount ?: fallbackAmount)?.toPlainAmount()
+private fun findTotalAmount(lines: List<String>): ParsedAmount? {
+    val candidates = lines.flatMapIndexed { index, line -> amountCandidates(line, index) }
+    return candidates
+        .sortedWith(
+            compareByDescending<ParsedAmount> { it.score }
+                .thenByDescending { it.lineIndex }
+                .thenByDescending { it.value },
+        )
+        .firstOrNull()
 }
 
-private fun parseAmount(amount: String): BigDecimal? =
-    amount.replace(',', '.').toBigDecimalOrNull()
+private fun amountCandidates(line: String, lineIndex: Int): List<ParsedAmount> {
+    if (percentPattern.containsMatchIn(line)) {
+        val percentRanges = percentPattern.findAll(line).map { it.range }.toList()
+        return moneyPattern.findAll(line)
+            .filterNot { match -> percentRanges.any { match.range.first >= it.first && match.range.last <= it.last } }
+            .mapNotNull { match -> scoredAmount(line, match.groupValues[1], lineIndex) }
+            .toList()
+    }
+    return moneyPattern.findAll(line)
+        .mapNotNull { match -> scoredAmount(line, match.groupValues[1], lineIndex) }
+        .toList()
+}
+
+private fun scoredAmount(line: String, rawAmount: String, lineIndex: Int): ParsedAmount? {
+    val value = parseAmount(rawAmount) ?: return null
+    if (value <= BigDecimal.ZERO) return null
+    val lower = line.lowercase(Locale.ROOT)
+    val strong = strongTotalKeywords.any { lower.contains(it) }
+    val weak = weakAmountKeywords.any { lower.contains(it) }
+    val score = when {
+        strong -> 100
+        weak -> 10
+        else -> 40
+    }
+    val confidence = when {
+        strong -> ReceiptFieldConfidence.High
+        weak -> ReceiptFieldConfidence.Low
+        else -> ReceiptFieldConfidence.Medium
+    }
+    return ParsedAmount(value = value, confidence = confidence, score = score, lineIndex = lineIndex)
+}
+
+private fun parseAmount(amount: String): BigDecimal? {
+    val normalized = normalizeAmount(amount) ?: return null
+    return normalized.toBigDecimalOrNull()
+}
+
+private fun normalizeAmount(amount: String): String? {
+    val compact = amount.filter { it.isDigit() || it == ',' || it == '.' }
+    if (compact.isBlank()) return null
+    val lastComma = compact.lastIndexOf(',')
+    val lastDot = compact.lastIndexOf('.')
+    val decimalSeparator = when {
+        lastComma == -1 -> '.'
+        lastDot == -1 -> ','
+        lastComma > lastDot -> ','
+        else -> '.'
+    }
+    val integer = compact.substringBeforeLast(decimalSeparator, missingDelimiterValue = compact)
+        .filter(Char::isDigit)
+    val cents = compact.substringAfterLast(decimalSeparator, missingDelimiterValue = "")
+        .filter(Char::isDigit)
+    if (integer.isBlank() || cents.length != 2) return null
+    return "$integer.$cents"
+}
 
 private fun BigDecimal.toPlainAmount(): String =
     setScale(2).toPlainString()

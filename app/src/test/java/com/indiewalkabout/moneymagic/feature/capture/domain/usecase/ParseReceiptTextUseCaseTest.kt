@@ -72,4 +72,48 @@ class ParseReceiptTextUseCaseTest {
         assertEquals("6.40", draft.amount)
         assertEquals(ReceiptFieldConfidence.Medium, draft.metadata.amountConfidence)
     }
+
+    @Test
+    fun parsesItalianTotalWithoutChoosingIvaOrImponibile() {
+        val draft = parseReceiptText(
+            """
+            CONAD CITY
+            DOCUMENTO COMMERCIALE
+            Data 24/06/2026 Ora 18:42
+            Imponibile 14,34
+            IVA 10% 1,43
+            Totale complessivo 15,77
+            Pagamento elettronico 15,77
+            """.trimIndent(),
+        )
+
+        assertEquals("CONAD CITY", draft.merchant)
+        assertEquals("15.77", draft.amount)
+        assertEquals(ReceiptFieldConfidence.High, draft.metadata.amountConfidence)
+    }
+
+    @Test
+    fun ignoresCardAuthorizationAndTransactionNumbers() {
+        val draft = parseReceiptText(
+            """
+            Payment Receipt
+            CARD VISA **** 1234
+            AUTH 987654
+            TRANSACTION 000123456789
+            AMOUNT PAID EUR 42.80
+            """.trimIndent(),
+        )
+
+        assertEquals("42.80", draft.amount)
+        assertEquals(ReceiptFieldConfidence.High, draft.metadata.amountConfidence)
+    }
+
+    @Test
+    fun parsesItalianAndEnglishThousandSeparators() {
+        val italian = parseReceiptText("Bolletta Energia\nImporto da pagare € 1.234,56")
+        val english = parseReceiptText("Utility Bill\nAmount due EUR 1,234.56")
+
+        assertEquals("1234.56", italian.amount)
+        assertEquals("1234.56", english.amount)
+    }
 }
