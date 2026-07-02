@@ -116,4 +116,20 @@ class ParseReceiptTextUseCaseTest {
         assertEquals("1234.56", italian.amount)
         assertEquals("1234.56", english.amount)
     }
+
+    @Test
+    fun keepsItalianSubtotalConfidenceLow() {
+        val draft = parseReceiptText("Subtotale 9,90")
+
+        assertEquals("9.90", draft.amount)
+        assertEquals(ReceiptFieldConfidence.Low, draft.metadata.amountConfidence)
+    }
+
+    @Test
+    fun keepsEnglishSubtotalConfidenceLow() {
+        val draft = parseReceiptText("Subtotal 9.90")
+
+        assertEquals("9.90", draft.amount)
+        assertEquals(ReceiptFieldConfidence.Low, draft.metadata.amountConfidence)
+    }
 }

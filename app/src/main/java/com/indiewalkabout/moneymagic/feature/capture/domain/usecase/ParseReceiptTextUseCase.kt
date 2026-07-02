@@ -138,13 +138,13 @@ private fun scoredAmount(line: String, rawAmount: String, lineIndex: Int): Parse
     val strong = strongTotalKeywords.any { lower.contains(it) }
     val weak = weakAmountKeywords.any { lower.contains(it) }
     val score = when {
-        strong -> 100
         weak -> 10
+        strong -> 100
         else -> 40
     }
     val confidence = when {
-        strong -> ReceiptFieldConfidence.High
         weak -> ReceiptFieldConfidence.Low
+        strong -> ReceiptFieldConfidence.High
         else -> ReceiptFieldConfidence.Medium
     }
     return ParsedAmount(value = value, confidence = confidence, score = score, lineIndex = lineIndex)
