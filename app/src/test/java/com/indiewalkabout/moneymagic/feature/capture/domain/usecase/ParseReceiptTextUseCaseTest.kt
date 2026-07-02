@@ -136,6 +136,34 @@ class ParseReceiptTextUseCaseTest {
     }
 
     @Test
+    fun prefersEnglishTotalOverLaterCashPaidTenderAmount() {
+        val draft = parseReceiptText(
+            """
+            Total 42.80
+            Cash paid 50.00
+            Change 7.20
+            """.trimIndent(),
+        )
+
+        assertEquals("42.80", draft.amount)
+        assertEquals(ReceiptFieldConfidence.High, draft.metadata.amountConfidence)
+    }
+
+    @Test
+    fun prefersItalianTotalOverLaterCashPaidTenderAmount() {
+        val draft = parseReceiptText(
+            """
+            Totale 42,80
+            Pagato contanti 50,00
+            Resto 7,20
+            """.trimIndent(),
+        )
+
+        assertEquals("42.80", draft.amount)
+        assertEquals(ReceiptFieldConfidence.High, draft.metadata.amountConfidence)
+    }
+
+    @Test
     fun keepsItalianSubtotalConfidenceLow() {
         val draft = parseReceiptText("Subtotale 9,90")
 

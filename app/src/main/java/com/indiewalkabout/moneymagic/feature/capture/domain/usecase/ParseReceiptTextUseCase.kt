@@ -47,22 +47,27 @@ private val moneyPattern = Regex(
 )
 private val percentPattern = Regex("""\b\d{1,2}(?:[.,]\d{1,2})?\s*%""")
 
-private val strongTotalKeywords = listOf(
+private val safeStrongTotalKeywords = listOf(
     "totale complessivo",
     "importo totale",
     "importo pagato",
     "importo da pagare",
     "da pagare",
     "totale",
-    "pagato",
     "saldo",
     "grand total",
     "amount due",
     "amount paid",
     "balance due",
     "total",
+)
+
+private val genericPaidKeywords = listOf(
+    "pagato",
     "paid",
 )
+
+private val strongTotalKeywords = safeStrongTotalKeywords + genericPaidKeywords
 
 private val weakAmountKeywords = listOf(
     "subtotale",
@@ -85,6 +90,22 @@ private val weakAmountKeywords = listOf(
     "auth",
     "transaction",
 )
+
+private val tenderPaymentKeywords = listOf(
+    "contanti",
+    "contante",
+    "carta",
+    "bancomat",
+    "pos",
+    "cash",
+    "card",
+    "visa",
+    "mastercard",
+    "debit",
+    "credit",
+)
+
+private val paidDemotionKeywords = tenderPaymentKeywords + weakAmountKeywords
 
 private val nonMerchantExactLabels = listOf(
     "scontrino",
@@ -213,7 +234,7 @@ private fun amountCandidates(line: String, lineIndex: Int): List<ParsedAmount> {
 private fun scoredAmount(line: String, rawAmount: String, lineIndex: Int): ParsedAmount? {
     val value = parseAmount(rawAmount) ?: return null
     if (value <= BigDecimal.ZERO) return null
-    val strong = matchesAnyKeyword(line, strongTotalKeywords)
+    val strong = hasStrongTotalSignal(line)
     val weak = matchesAnyKeyword(line, weakAmountKeywords)
     val score = when {
         strong -> 100
@@ -227,6 +248,13 @@ private fun scoredAmount(line: String, rawAmount: String, lineIndex: Int): Parse
     }
     return ParsedAmount(value = value, confidence = confidence, score = score, lineIndex = lineIndex)
 }
+
+private fun hasStrongTotalSignal(line: String): Boolean =
+    matchesAnyKeyword(line, safeStrongTotalKeywords) ||
+        (
+            matchesAnyKeyword(line, genericPaidKeywords) &&
+                !matchesAnyKeyword(line, paidDemotionKeywords)
+            )
 
 private fun matchesAnyKeyword(line: String, keywords: List<String>): Boolean =
     keywords.any { keyword -> keyword.toKeywordRegex().containsMatchIn(line) }
