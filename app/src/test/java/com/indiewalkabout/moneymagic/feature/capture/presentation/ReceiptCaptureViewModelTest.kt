@@ -13,6 +13,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Before
@@ -45,6 +46,7 @@ class ReceiptCaptureViewModelTest {
         assertEquals("", viewModel.uiState.value.rawText)
         assertNull(viewModel.uiState.value.draft)
         assertEquals(ReceiptCaptureError.NoTextFound, viewModel.uiState.value.errorMessage)
+        assertFalse(viewModel.uiState.value.isScanning)
     }
 
     @Test
@@ -57,6 +59,25 @@ class ReceiptCaptureViewModelTest {
         assertEquals("unstructured words only", viewModel.uiState.value.rawText)
         assertNotNull(viewModel.uiState.value.draft)
         assertNull(viewModel.uiState.value.errorMessage)
+        assertFalse(viewModel.uiState.value.isScanning)
+    }
+
+    @Test
+    fun parserExceptionPreservesRawTextInDraftWithoutError() = runTest {
+        val ocrText = "receipt text that trips parser"
+        val viewModel = ReceiptCaptureViewModel(
+            recognizer = FakeRecognizer(Result.success(ocrText)),
+            parseReceiptText = { throw IllegalArgumentException("parse failed") },
+        )
+
+        viewModel.scanUri(Uri.EMPTY)
+        advanceUntilIdle()
+
+        assertEquals(ocrText, viewModel.uiState.value.rawText)
+        assertEquals(ocrText, viewModel.uiState.value.draft?.rawText)
+        assertNotNull(viewModel.uiState.value.draft)
+        assertNull(viewModel.uiState.value.errorMessage)
+        assertFalse(viewModel.uiState.value.isScanning)
     }
 
     private class FakeRecognizer(

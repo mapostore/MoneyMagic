@@ -9,6 +9,7 @@ import com.indiewalkabout.moneymagic.feature.capture.domain.repository.ReceiptTe
 import com.indiewalkabout.moneymagic.feature.capture.domain.usecase.ParseReceiptTextUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -28,10 +29,27 @@ enum class ReceiptCaptureError {
 }
 
 @HiltViewModel
-class ReceiptCaptureViewModel @Inject constructor(
-    private val recognizer: ReceiptTextRecognizer,
-    private val parseReceiptText: ParseReceiptTextUseCase,
-) : ViewModel() {
+class ReceiptCaptureViewModel : ViewModel {
+    private val recognizer: ReceiptTextRecognizer
+    private val parseReceiptText: (String) -> ReceiptDraft
+
+    @Inject
+    constructor(
+        recognizer: ReceiptTextRecognizer,
+        parseReceiptText: ParseReceiptTextUseCase,
+    ) : this(
+        recognizer = recognizer,
+        parseReceiptText = parseReceiptText::invoke,
+    )
+
+    internal constructor(
+        recognizer: ReceiptTextRecognizer,
+        parseReceiptText: (String) -> ReceiptDraft,
+    ) {
+        this.recognizer = recognizer
+        this.parseReceiptText = parseReceiptText
+    }
+
     private val _uiState = MutableStateFlow(ReceiptCaptureUiState())
     val uiState: StateFlow<ReceiptCaptureUiState> = _uiState.asStateFlow()
 
@@ -55,7 +73,11 @@ class ReceiptCaptureViewModel @Inject constructor(
         viewModelScope.launch {
             recognize()
                 .onSuccess { text ->
-                    val draft = runCatching { parseReceiptText(text) }.getOrElse {
+                    val draft = try {
+                        parseReceiptText(text)
+                    } catch (exception: CancellationException) {
+                        throw exception
+                    } catch (_: Exception) {
                         ReceiptDraft(rawText = text)
                     }
                     _uiState.update {
