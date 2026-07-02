@@ -150,4 +150,49 @@ class ParseReceiptTextUseCaseTest {
         assertEquals("9.90", draft.amount)
         assertEquals(ReceiptFieldConfidence.Low, draft.metadata.amountConfidence)
     }
+
+    @Test
+    fun parsesItalianMonthNameDateAndSkipsFiscalHeader() {
+        val draft = parseReceiptText(
+            """
+            DOCUMENTO COMMERCIALE
+            ALIMENTARI ROSSI SRL
+            Via Torino 8
+            24 giugno 2026
+            Totale 18,20
+            """.trimIndent(),
+        )
+
+        assertEquals("ALIMENTARI ROSSI SRL", draft.merchant)
+        assertEquals("2026-06-24", draft.date)
+        assertEquals(ReceiptFieldConfidence.High, draft.metadata.dateConfidence)
+    }
+
+    @Test
+    fun parsesEnglishMonthNameDate() {
+        val draft = parseReceiptText(
+            """
+            North Market
+            Tax Receipt
+            June 24, 2026
+            Grand Total $32.10
+            """.trimIndent(),
+        )
+
+        assertEquals("North Market", draft.merchant)
+        assertEquals("2026-06-24", draft.date)
+    }
+
+    @Test
+    fun parsesEnglishMonthFirstDateWhenDateLabelIsEnglish() {
+        val draft = parseReceiptText(
+            """
+            City Pharmacy
+            Date 06/24/2026
+            Total 9.99
+            """.trimIndent(),
+        )
+
+        assertEquals("2026-06-24", draft.date)
+    }
 }

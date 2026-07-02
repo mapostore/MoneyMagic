@@ -4,9 +4,9 @@ import com.indiewalkabout.moneymagic.feature.capture.domain.model.ReceiptDraft
 import com.indiewalkabout.moneymagic.feature.capture.domain.model.ReceiptFieldConfidence
 import com.indiewalkabout.moneymagic.feature.capture.domain.model.ReceiptParseMetadata
 import java.math.BigDecimal
+import java.time.DateTimeException
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
-import java.time.format.DateTimeParseException
 import java.util.Locale
 import javax.inject.Inject
 
@@ -20,7 +20,8 @@ class ParseReceiptTextUseCase @Inject constructor() {
         val merchant = lines.firstOrNull(::looksLikeMerchant).orEmpty()
         val parsedAmount = findTotalAmount(lines)
         val amount = parsedAmount?.value?.toPlainAmount().orEmpty()
-        val date = findDate(lines).orEmpty()
+        val parsedDate = findDate(lines)
+        val date = parsedDate?.value?.toString().orEmpty()
         return ReceiptDraft(
             name = merchant,
             merchant = merchant,
@@ -34,11 +35,7 @@ class ParseReceiptTextUseCase @Inject constructor() {
                     ReceiptFieldConfidence.High
                 },
                 amountConfidence = parsedAmount?.confidence ?: ReceiptFieldConfidence.Missing,
-                dateConfidence = if (date.isBlank()) {
-                    ReceiptFieldConfidence.Missing
-                } else {
-                    ReceiptFieldConfidence.High
-                },
+                dateConfidence = parsedDate?.confidence ?: ReceiptFieldConfidence.Missing,
             ),
         )
     }
@@ -89,8 +86,41 @@ private val weakAmountKeywords = listOf(
     "transaction",
 )
 
+private val nonMerchantKeywords = listOf(
+    "scontrino",
+    "ricevuta",
+    "fattura",
+    "documento commerciale",
+    "receipt",
+    "invoice",
+    "tax receipt",
+    "date",
+    "data",
+    "ora",
+    "time",
+)
+
 private val isoDatePattern = Regex("""\b(\d{4})-(\d{2})-(\d{2})\b""")
 private val dayFirstDatePattern = Regex("""\b(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})\b""")
+private val monthNameDatePatterns = listOf(
+    Regex("""\b(\d{1,2})\s+([A-Za-zÀ-ÿ]{3,})\s+(\d{2,4})\b""", RegexOption.IGNORE_CASE),
+    Regex("""\b([A-Za-zÀ-ÿ]{3,})\s+(\d{1,2}),?\s+(\d{2,4})\b""", RegexOption.IGNORE_CASE),
+)
+
+private val monthNames = mapOf(
+    "gennaio" to 1, "gen" to 1, "january" to 1, "jan" to 1,
+    "febbraio" to 2, "feb" to 2, "february" to 2,
+    "marzo" to 3, "mar" to 3, "march" to 3,
+    "aprile" to 4, "apr" to 4, "april" to 4,
+    "maggio" to 5, "mag" to 5, "may" to 5,
+    "giugno" to 6, "giu" to 6, "june" to 6, "jun" to 6,
+    "luglio" to 7, "lug" to 7, "july" to 7, "jul" to 7,
+    "agosto" to 8, "ago" to 8, "august" to 8, "aug" to 8,
+    "settembre" to 9, "set" to 9, "september" to 9, "sep" to 9,
+    "ottobre" to 10, "ott" to 10, "october" to 10, "oct" to 10,
+    "novembre" to 11, "nov" to 11, "november" to 11,
+    "dicembre" to 12, "dic" to 12, "december" to 12, "dec" to 12,
+)
 
 private data class ParsedAmount(
     val value: BigDecimal,
@@ -99,12 +129,21 @@ private data class ParsedAmount(
     val lineIndex: Int,
 )
 
+private data class ParsedDate(
+    val value: LocalDate,
+    val confidence: ReceiptFieldConfidence,
+)
+
 private fun looksLikeMerchant(line: String): Boolean {
-    val lower = line.lowercase(Locale.ROOT)
-    return !matchesAnyKeyword(line, strongTotalKeywords) &&
-        !lower.contains("date") &&
-        !lower.contains("data") &&
-        moneyPattern.find(line) == null
+    val letters = line.count(Char::isLetter)
+    val digits = line.count(Char::isDigit)
+    return letters >= 3 &&
+        letters >= digits &&
+        !matchesAnyKeyword(line, nonMerchantKeywords) &&
+        !matchesAnyKeyword(line, strongTotalKeywords) &&
+        !matchesAnyKeyword(line, weakAmountKeywords) &&
+        moneyPattern.find(line) == null &&
+        parseDate(line) == null
 }
 
 private fun findTotalAmount(lines: List<String>): ParsedAmount? {
@@ -186,30 +225,57 @@ private fun normalizeAmount(amount: String): String? {
 private fun BigDecimal.toPlainAmount(): String =
     setScale(2).toPlainString()
 
-private fun findDate(lines: List<String>): String? {
+private fun findDate(lines: List<String>): ParsedDate? {
     lines.forEach { line ->
-        parseIsoDate(line)?.let { return it.toString() }
-        parseDayFirstDate(line)?.let { return it.toString() }
+        parseDate(line)?.let { return it }
     }
     return null
 }
 
-private fun parseIsoDate(line: String): LocalDate? {
+private fun parseDate(line: String): ParsedDate? =
+    parseIsoDate(line)
+        ?: parseMonthNameDate(line)
+        ?: parseNumericDate(line)
+
+private fun parseIsoDate(line: String): ParsedDate? {
     val match = isoDatePattern.find(line) ?: return null
     return runCatching {
-        LocalDate.parse(match.value, DateTimeFormatter.ISO_LOCAL_DATE)
+        ParsedDate(LocalDate.parse(match.value, DateTimeFormatter.ISO_LOCAL_DATE), ReceiptFieldConfidence.High)
     }.getOrNull()
 }
 
-private fun parseDayFirstDate(line: String): LocalDate? {
+private fun parseMonthNameDate(line: String): ParsedDate? {
+    monthNameDatePatterns.forEachIndexed { index, pattern ->
+        val match = pattern.find(line) ?: return@forEachIndexed
+        val day = (
+            if (index == 0) match.groupValues[1].toIntOrNull() else match.groupValues[2].toIntOrNull()
+            ) ?: return@forEachIndexed
+        val monthText = if (index == 0) match.groupValues[2] else match.groupValues[1]
+        val yearText = match.groupValues[3]
+        val month = monthNames[monthText.lowercase(Locale.ROOT)] ?: return@forEachIndexed
+        val year = normalizeYear(yearText)
+        return runCatching {
+            ParsedDate(LocalDate.of(year, month, day), ReceiptFieldConfidence.High)
+        }.getOrNull()
+    }
+    return null
+}
+
+private fun parseNumericDate(line: String): ParsedDate? {
     val match = dayFirstDatePattern.find(line) ?: return null
-    val day = match.groupValues[1].padStart(2, '0')
-    val month = match.groupValues[2].padStart(2, '0')
-    val rawYear = match.groupValues[3]
-    val year = if (rawYear.length == 2) "20$rawYear" else rawYear
+    val first = match.groupValues[1].toIntOrNull() ?: return null
+    val second = match.groupValues[2].toIntOrNull() ?: return null
+    val year = normalizeYear(match.groupValues[3])
+    val lower = line.lowercase(Locale.ROOT)
+    val monthFirst = lower.contains("date") && first in 1..12 && second in 13..31
+    val day = if (monthFirst) second else first
+    val month = if (monthFirst) first else second
     return try {
-        LocalDate.parse("$year-$month-$day", DateTimeFormatter.ISO_LOCAL_DATE)
-    } catch (_: DateTimeParseException) {
+        ParsedDate(LocalDate.of(year, month, day), ReceiptFieldConfidence.High)
+    } catch (_: DateTimeException) {
         null
     }
 }
+
+private fun normalizeYear(rawYear: String): Int =
+    if (rawYear.length == 2) "20$rawYear".toInt() else rawYear.toInt()
