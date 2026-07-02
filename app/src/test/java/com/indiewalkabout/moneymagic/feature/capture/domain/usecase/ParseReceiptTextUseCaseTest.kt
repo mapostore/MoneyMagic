@@ -174,6 +174,30 @@ class ParseReceiptTextUseCaseTest {
     }
 
     @Test
+    fun skipsSplitOcrDateAndTimeLabelsWhenChoosingMerchant() {
+        val dateLabel = parseReceiptText(
+            """
+            Date
+            06/24/2026
+            Split Label Market
+            Total 9.99
+            """.trimIndent(),
+        )
+        val timeLabel = parseReceiptText(
+            """
+            Ora
+            18:30
+            Mercato Centrale
+            Totale 4,50
+            """.trimIndent(),
+        )
+
+        assertEquals("Split Label Market", dateLabel.merchant)
+        assertEquals("2026-06-24", dateLabel.date)
+        assertEquals("Mercato Centrale", timeLabel.merchant)
+    }
+
+    @Test
     fun parsesItalianMonthNameDateAndSkipsFiscalHeader() {
         val draft = parseReceiptText(
             """

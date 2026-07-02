@@ -172,6 +172,7 @@ private fun isNonMerchantLabelLine(line: String): Boolean {
         .joinToString(" ")
         .lowercase(Locale.ROOT)
     return nonMerchantExactLabels.any { normalized == it } ||
+        dateTimeLabelKeywords.any { normalized == it } ||
         (
             matchesAnyKeyword(line, dateTimeLabelKeywords) &&
                 (parseDate(line) != null || timePattern.containsMatchIn(line))
@@ -265,11 +266,20 @@ private fun BigDecimal.toPlainAmount(): String =
     setScale(2).toPlainString()
 
 private fun findDate(lines: List<String>): ParsedDate? {
-    lines.forEach { line ->
+    lines.forEachIndexed { index, line ->
         parseDate(line)?.let { return it }
+        if (index > 0 && lines[index - 1].isExactLabel("date")) {
+            parseDate("Date $line")?.let { return it }
+        }
     }
     return null
 }
+
+private fun String.isExactLabel(label: String): Boolean =
+    trim()
+        .split(Regex("""\s+"""))
+        .joinToString(" ")
+        .equals(label, ignoreCase = true)
 
 private fun parseDate(line: String): ParsedDate? =
     parseIsoDate(line)
