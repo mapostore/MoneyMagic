@@ -44,6 +44,24 @@ class ParseReceiptTextUseCaseTest {
     }
 
     @Test
+    fun exposesReceiptCandidatesForReview() {
+        val draft = parseReceiptText(
+            """
+            Fresh Market
+            Via Roma 12
+            Date 2026-06-24
+            Apples 3.20
+            Bread 2.50
+            TOTAL EUR 12.34
+            """.trimIndent(),
+        )
+
+        assertEquals(listOf("Fresh Market", "Via Roma 12"), draft.candidates.merchants.map { it.value })
+        assertEquals(listOf("12.34", "3.20", "2.50"), draft.candidates.amounts.map { it.value })
+        assertEquals(listOf("2026-06-24"), draft.candidates.dates.map { it.value })
+    }
+
+    @Test
     fun fallsBackToLargestAmountWhenNoTotalLabelExists() {
         val draft = parseReceiptText(
             """

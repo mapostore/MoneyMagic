@@ -1,0 +1,4 @@
+documentType=BillInvoice
+merchant=ENERGIA VERDE SPA
+amount=126.60
+date=2026-07-31

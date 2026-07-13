@@ -1,0 +1,8 @@
+INVOICE
+Cloud Utilities Ltd
+Statement date July 1, 2026
+Previous balance EUR 20.00
+Tax EUR 4.10
+AMOUNT DUE EUR 87.20
+Due date July 31, 2026
+Payment reference INV-2026-07-001

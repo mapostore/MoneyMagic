@@ -1,0 +1,10 @@
+BOLLETTA ENERGIA
+ENERGIA VERDE SPA
+Cod cliente 123456
+Periodo consumi giugno 2026
+Saldo precedente 38,50
+Totale bolletta 118,40
+IVA 10% 8,20
+IMPORTO DA PAGARE Euro 126,60
+SCADENZA 31/07/2026
+Codice bollettino 000123456789

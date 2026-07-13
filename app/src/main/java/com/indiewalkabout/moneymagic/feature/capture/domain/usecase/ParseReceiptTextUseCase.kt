@@ -1,6 +1,9 @@
 package com.indiewalkabout.moneymagic.feature.capture.domain.usecase
 
 import com.indiewalkabout.moneymagic.feature.capture.domain.model.ReceiptDraft
+import com.indiewalkabout.moneymagic.feature.capture.domain.model.ReceiptCandidate
+import com.indiewalkabout.moneymagic.feature.capture.domain.model.ReceiptCandidateField
+import com.indiewalkabout.moneymagic.feature.capture.domain.model.ReceiptCandidates
 import com.indiewalkabout.moneymagic.feature.capture.domain.model.ReceiptFieldConfidence
 import com.indiewalkabout.moneymagic.feature.capture.domain.model.ReceiptParseMetadata
 import java.math.BigDecimal
@@ -18,9 +21,11 @@ class ParseReceiptTextUseCase @Inject constructor() {
             .filter { it.isNotBlank() }
             .toList()
         val merchant = lines.firstOrNull(::looksLikeMerchant).orEmpty()
-        val parsedAmount = findTotalAmount(lines)
+        val amountCandidates = findAmountCandidates(lines)
+        val parsedAmount = amountCandidates.firstOrNull()
         val amount = parsedAmount?.value?.toPlainAmount().orEmpty()
-        val parsedDate = findDate(lines)
+        val dateCandidates = findDateCandidates(lines)
+        val parsedDate = dateCandidates.firstOrNull()
         val date = parsedDate?.value?.toString().orEmpty()
         return ReceiptDraft(
             name = merchant,
@@ -37,8 +42,52 @@ class ParseReceiptTextUseCase @Inject constructor() {
                 amountConfidence = parsedAmount?.confidence ?: ReceiptFieldConfidence.Missing,
                 dateConfidence = parsedDate?.confidence ?: ReceiptFieldConfidence.Missing,
             ),
+            candidates = ReceiptCandidates(
+                merchants = lines
+                    .filter(::looksLikeMerchant)
+                    .distinct()
+                    .take(3)
+                    .map { candidate ->
+                        ReceiptCandidate(
+                            field = ReceiptCandidateField.Merchant,
+                            value = candidate,
+                            label = candidate,
+                            confidence = ReceiptFieldConfidence.Medium,
+                        )
+                    },
+                amounts = amountCandidates
+                    .rankForReview(parsedAmount)
+                    .distinctBy { it.value }
+                    .take(5)
+                    .map { candidate ->
+                        ReceiptCandidate(
+                            field = ReceiptCandidateField.Amount,
+                            value = candidate.value.toPlainAmount(),
+                            label = candidate.label,
+                            confidence = candidate.confidence,
+                        )
+                    },
+                dates = dateCandidates
+                    .distinctBy { it.value }
+                    .take(3)
+                    .map { candidate ->
+                        ReceiptCandidate(
+                            field = ReceiptCandidateField.Date,
+                            value = candidate.value.toString(),
+                            label = candidate.label,
+                            confidence = candidate.confidence,
+                        )
+                    },
+            ),
         )
     }
+}
+
+private fun List<ParsedAmount>.rankForReview(selectedAmount: ParsedAmount?): List<ParsedAmount> {
+    val selected = selectedAmount?.let { amount -> filter { it.value == amount.value } } ?: emptyList()
+    val remaining = filterNot { candidate -> selected.any { it.value == candidate.value } }
+        .sortedBy { it.lineIndex }
+    return selected + remaining
 }
 
 private val moneyPattern = Regex(
@@ -168,11 +217,15 @@ private data class ParsedAmount(
     val confidence: ReceiptFieldConfidence,
     val score: Int,
     val lineIndex: Int,
+    val label: String,
 )
 
 private data class ParsedDate(
     val value: LocalDate,
     val confidence: ReceiptFieldConfidence,
+    val score: Int,
+    val lineIndex: Int,
+    val label: String,
 )
 
 private fun looksLikeMerchant(line: String): Boolean {
@@ -207,7 +260,7 @@ private fun isPaymentOrAdjustmentLine(line: String): Boolean {
         matchesAnyKeyword(line, merchantPaymentSignals)
 }
 
-private fun findTotalAmount(lines: List<String>): ParsedAmount? {
+private fun findAmountCandidates(lines: List<String>): List<ParsedAmount> {
     val candidates = lines.flatMapIndexed { index, line -> amountCandidates(line, index) }
     return candidates
         .sortedWith(
@@ -215,7 +268,6 @@ private fun findTotalAmount(lines: List<String>): ParsedAmount? {
                 .thenByDescending { it.lineIndex }
                 .thenByDescending { it.value },
         )
-        .firstOrNull()
 }
 
 private fun amountCandidates(line: String, lineIndex: Int): List<ParsedAmount> {
@@ -246,7 +298,7 @@ private fun scoredAmount(line: String, rawAmount: String, lineIndex: Int): Parse
         weak -> ReceiptFieldConfidence.Low
         else -> ReceiptFieldConfidence.Medium
     }
-    return ParsedAmount(value = value, confidence = confidence, score = score, lineIndex = lineIndex)
+    return ParsedAmount(value = value, confidence = confidence, score = score, lineIndex = lineIndex, label = line)
 }
 
 private fun hasStrongTotalSignal(line: String): Boolean =
@@ -293,14 +345,22 @@ private fun normalizeAmount(amount: String): String? {
 private fun BigDecimal.toPlainAmount(): String =
     setScale(2).toPlainString()
 
-private fun findDate(lines: List<String>): ParsedDate? {
+private fun findDateCandidates(lines: List<String>): List<ParsedDate> {
+    val candidates = mutableListOf<ParsedDate>()
     lines.forEachIndexed { index, line ->
-        parseDate(line)?.let { return it }
+        parseDate(line)?.let {
+            candidates += it.copy(score = 100, lineIndex = index, label = line)
+        }
         if (index > 0 && lines[index - 1].isExactLabel("date")) {
-            parseDate("Date $line")?.let { return it }
+            parseDate("Date $line")?.let {
+                candidates += it.copy(score = 100, lineIndex = index, label = "${lines[index - 1]} $line")
+            }
         }
     }
-    return null
+    return candidates.sortedWith(
+        compareByDescending<ParsedDate> { it.score }
+            .thenBy { it.lineIndex },
+    )
 }
 
 private fun String.isExactLabel(label: String): Boolean =
@@ -317,7 +377,13 @@ private fun parseDate(line: String): ParsedDate? =
 private fun parseIsoDate(line: String): ParsedDate? {
     val match = isoDatePattern.find(line) ?: return null
     return runCatching {
-        ParsedDate(LocalDate.parse(match.value, DateTimeFormatter.ISO_LOCAL_DATE), ReceiptFieldConfidence.High)
+        ParsedDate(
+            value = LocalDate.parse(match.value, DateTimeFormatter.ISO_LOCAL_DATE),
+            confidence = ReceiptFieldConfidence.High,
+            score = 0,
+            lineIndex = 0,
+            label = line,
+        )
     }.getOrNull()
 }
 
@@ -332,7 +398,13 @@ private fun parseMonthNameDate(line: String): ParsedDate? {
         val month = monthNames[monthText.lowercase(Locale.ROOT)] ?: return@forEachIndexed
         val year = normalizeYear(yearText)
         return runCatching {
-            ParsedDate(LocalDate.of(year, month, day), ReceiptFieldConfidence.High)
+            ParsedDate(
+                value = LocalDate.of(year, month, day),
+                confidence = ReceiptFieldConfidence.High,
+                score = 0,
+                lineIndex = 0,
+                label = line,
+            )
         }.getOrNull()
     }
     return null
@@ -347,7 +419,13 @@ private fun parseNumericDate(line: String): ParsedDate? {
     val day = if (monthFirst) second else first
     val month = if (monthFirst) first else second
     return try {
-        ParsedDate(LocalDate.of(year, month, day), ReceiptFieldConfidence.High)
+        ParsedDate(
+            value = LocalDate.of(year, month, day),
+            confidence = ReceiptFieldConfidence.High,
+            score = 0,
+            lineIndex = 0,
+            label = line,
+        )
     } catch (_: DateTimeException) {
         null
     }

@@ -1,0 +1,10 @@
+DOCUMENTO COMMERCIALE
+CONAD CITY
+Via Roma 10
+Data 13/07/2026 Ora 18:42
+Pane 2,20
+Latte 1,80
+Imponibile 14,34
+IVA 10% 1,43
+Totale complessivo 15,77
+Pagamento elettronico 15,77
