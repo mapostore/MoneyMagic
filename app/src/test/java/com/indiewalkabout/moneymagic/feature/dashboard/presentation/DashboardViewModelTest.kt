@@ -97,6 +97,7 @@ class DashboardViewModelTest {
             categoryId = 1,
             merchant = "Merchant",
             paymentMethodId = null,
+            description = "",
             notes = "",
             tags = emptyList(),
             createdAt = dateTime,

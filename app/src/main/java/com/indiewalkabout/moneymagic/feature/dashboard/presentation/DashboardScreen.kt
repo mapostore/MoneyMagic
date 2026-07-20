@@ -7,20 +7,26 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.indiewalkabout.moneymagic.R
+import com.indiewalkabout.moneymagic.feature.budgets.domain.model.Budget
+import com.indiewalkabout.moneymagic.feature.budgets.domain.model.BudgetPeriod
 import com.indiewalkabout.moneymagic.feature.budgets.domain.model.BudgetProgress
+import com.indiewalkabout.moneymagic.feature.dashboard.presentation.components.BudgetProgressCard
+import com.indiewalkabout.moneymagic.feature.dashboard.presentation.components.CategorySpendCard
+import com.indiewalkabout.moneymagic.feature.dashboard.presentation.components.RecentExpenseCard
+import com.indiewalkabout.moneymagic.feature.expenses.domain.model.Category
 import com.indiewalkabout.moneymagic.feature.expenses.domain.model.Expense
-import java.util.Locale
+import java.time.Instant
 
 @Composable
 fun DashboardScreen(
@@ -31,6 +37,21 @@ fun DashboardScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
+    DashboardContent(
+        uiState = uiState,
+        onAddExpenseClick = onAddExpenseClick,
+        onScanReceiptClick = onScanReceiptClick,
+        modifier = modifier,
+    )
+}
+
+@Composable
+private fun DashboardContent(
+    uiState: DashboardUiState,
+    onAddExpenseClick: () -> Unit,
+    onScanReceiptClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
@@ -91,62 +112,50 @@ private fun SectionTitle(text: String) {
     Text(text = text, style = MaterialTheme.typography.titleMedium)
 }
 
+@Preview(showBackground = true)
 @Composable
-private fun RecentExpenseCard(expense: Expense) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            Text(
-                text = expense.name.ifBlank { expense.merchant.ifBlank { stringResource(R.string.add_expense) } },
-                style = MaterialTheme.typography.titleSmall,
-            )
-            Text(
-                text = formatAmount(expense.amountMinor, expense.currency),
-                style = MaterialTheme.typography.bodyMedium,
-            )
-        }
-    }
-}
-
-@Composable
-private fun BudgetProgressCard(progress: BudgetProgress) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            Text(text = progress.budget.name, style = MaterialTheme.typography.titleSmall)
-            Text(
-                text = stringResource(
-                    R.string.budget_progress_status,
-                    progress.percentUsed,
-                    formatAmount(progress.remainingMinor, progress.budget.currency),
+private fun DashboardScreenPreview() {
+    MaterialTheme {
+        DashboardContent(
+            uiState = DashboardUiState(
+                recentExpenses = listOf(sampleDashboardExpense()),
+                budgetProgress = listOf(sampleDashboardBudgetProgress()),
+                topCategories = listOf(
+                    CategorySpend(
+                        category = Category(1, "SPESA", 0xFF00AA00, "spesa", 0, false),
+                        amountMinor = 12900,
+                    ),
                 ),
-                style = MaterialTheme.typography.bodyMedium,
-            )
-        }
+            ),
+            onAddExpenseClick = {},
+            onScanReceiptClick = {},
+        )
     }
 }
 
-@Composable
-private fun CategorySpendCard(categorySpend: CategorySpend) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            Text(text = categorySpend.category.name, style = MaterialTheme.typography.titleSmall)
-            Text(
-                text = formatAmount(categorySpend.amountMinor, "EUR"),
-                style = MaterialTheme.typography.bodyMedium,
-            )
-        }
-    }
-}
+private fun sampleDashboardExpense(): Expense =
+    Expense(
+        id = 1,
+        name = "Grocery run",
+        amountMinor = 4288,
+        currency = "EUR",
+        dateTime = Instant.parse("2026-06-24T12:30:00Z"),
+        categoryId = 1,
+        merchant = "Market",
+        paymentMethodId = 1,
+        description = "SPESA 2026-06-24 14:30",
+        notes = "",
+        tags = emptyList(),
+        createdAt = Instant.parse("2026-06-24T12:30:00Z"),
+        updatedAt = Instant.parse("2026-06-24T12:30:00Z"),
+    )
 
-private fun formatAmount(amountMinor: Long, currency: String): String {
-    val amount = amountMinor / 100.0
-    return "%s %.2f".format(Locale.getDefault(), currency, amount)
-}
+private fun sampleDashboardBudgetProgress(): BudgetProgress =
+    BudgetProgress(
+        budget = Budget(1, "Monthly groceries", 30000, "EUR", BudgetPeriod.Monthly, 1, 80, true),
+        spentMinor = 18000,
+        remainingMinor = 12000,
+        percentUsed = 60,
+        isNearTarget = false,
+        isOverBudget = false,
+    )

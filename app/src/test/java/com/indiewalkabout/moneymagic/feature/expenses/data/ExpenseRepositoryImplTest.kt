@@ -63,6 +63,7 @@ class ExpenseRepositoryImplTest {
                 categoryId = 1,
                 merchant = "Bakery",
                 paymentMethodId = null,
+                description = "",
                 notes = "",
                 tags = listOf("food"),
                 createdAt = now,
@@ -112,7 +113,7 @@ class ExpenseRepositoryImplTest {
     }
 
     @Test
-    fun seededFreshDatabaseSavesExpenseWithDefaultFoodCategory() = runTest {
+    fun seededFreshDatabaseSavesExpenseWithDefaultCategory() = runTest {
         val seededDatabase = Room.inMemoryDatabaseBuilder(
             ApplicationProvider.getApplicationContext(),
             MoneyMagicDatabase::class.java,
@@ -123,7 +124,7 @@ class ExpenseRepositoryImplTest {
         val seededBudgetRepository = BudgetRepositoryImpl(seededDatabase.budgetDao())
 
         try {
-            seededRepository.save(testExpense(categoryId = 1))
+            seededRepository.save(testExpense(categoryId = 1001))
 
             val expenses = seededRepository.observeExpenses().first()
             val budgets = seededBudgetRepository.observeBudgets().first()
@@ -131,7 +132,8 @@ class ExpenseRepositoryImplTest {
             assertTrue(expenses.any { it.merchant == "Bakery" })
             assertTrue(expenses.none { it.tags.contains("demo") })
             assertTrue(budgets.isEmpty())
-            assertEquals("Food", categories.first { it.id == 1L }.name)
+            assertEquals("ABBONAMENTI", categories.first { it.id == 1001L }.name)
+            assertEquals("INTERESSI", categories.first { it.id == 1039L }.name)
         } finally {
             seededDatabase.close()
         }
@@ -263,6 +265,7 @@ class ExpenseRepositoryImplTest {
             categoryId = categoryId,
             merchant = "Bakery",
             paymentMethodId = paymentMethodId,
+            description = "",
             notes = "",
             tags = listOf("food"),
             createdAt = now,

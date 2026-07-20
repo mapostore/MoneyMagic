@@ -173,6 +173,7 @@ class BudgetsViewModelTest {
             categoryId = categoryId,
             merchant = "Merchant",
             paymentMethodId = null,
+            description = "",
             notes = "",
             tags = emptyList(),
             createdAt = dateTime,

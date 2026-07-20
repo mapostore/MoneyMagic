@@ -1,6 +1,7 @@
 package com.indiewalkabout.moneymagic.feature.settings.domain.usecase
 
 import com.indiewalkabout.moneymagic.feature.expenses.domain.model.Expense
+import com.indiewalkabout.moneymagic.feature.expenses.domain.model.Category
 import java.io.ByteArrayOutputStream
 import java.time.DayOfWeek
 import java.time.Month
@@ -11,7 +12,8 @@ import java.util.zip.ZipOutputStream
 import javax.inject.Inject
 
 class ExportExpensesXlsxUseCase @Inject constructor() {
-    operator fun invoke(expenses: List<Expense>): ByteArray {
+    operator fun invoke(expenses: List<Expense>, categories: List<Category>): ByteArray {
+        val categoryNamesById = categories.associate { it.id to it.name }
         val rows = expenses
             .sortedByDescending { it.dateTime }
             .groupBy { expense ->
@@ -21,7 +23,12 @@ class ExportExpensesXlsxUseCase @Inject constructor() {
             .flatMap { (yearMonth, monthExpenses) ->
                 val (year, month) = yearMonth
                 listOf(ExportRow.Header("$year - ${month.italianName()}")) +
-                    monthExpenses.map(ExportRow::ExpenseLine)
+                    monthExpenses.map { expense ->
+                        ExportRow.ExpenseLine(
+                            expense = expense,
+                            categoryName = categoryNamesById[expense.categoryId].orEmpty(),
+                        )
+                    }
             }
 
         return createXlsx(rows)
@@ -30,7 +37,7 @@ class ExportExpensesXlsxUseCase @Inject constructor() {
 
 private sealed interface ExportRow {
     data class Header(val text: String) : ExportRow
-    data class ExpenseLine(val expense: Expense) : ExportRow
+    data class ExpenseLine(val expense: Expense, val categoryName: String) : ExportRow
 }
 
 private fun createXlsx(rows: List<ExportRow>): ByteArray {
@@ -40,6 +47,7 @@ private fun createXlsx(rows: List<ExportRow>): ByteArray {
         zip.writeEntry("_rels/.rels", relsXml)
         zip.writeEntry("xl/workbook.xml", workbookXml)
         zip.writeEntry("xl/_rels/workbook.xml.rels", workbookRelsXml)
+        zip.writeEntry("xl/styles.xml", stylesXml)
         zip.writeEntry("xl/worksheets/sheet1.xml", sheetXml(rows))
     }
     return output.toByteArray()
@@ -61,14 +69,14 @@ private fun sheetXml(rows: List<ExportRow>): String =
             append("""<row r="$rowNumber">""")
             when (row) {
                 is ExportRow.Header -> {
-                    append(inlineStringCell("A", rowNumber, row.text))
+                    append(inlineStringCell("A", rowNumber, row.text, styleId = 1))
                 }
                 is ExportRow.ExpenseLine -> {
                     val expense = row.expense
-                    append(inlineStringCell("A", rowNumber, expense.amountMinor.negativeAmount()))
-                    append(inlineStringCell("B", rowNumber, ""))
-                    append(inlineStringCell("C", rowNumber, ""))
-                    append(inlineStringCell("D", rowNumber, expense.italianDate()))
+                    append(inlineStringCell("A", rowNumber, expense.amountMinor.negativeAmount(), styleId = 1))
+                    append(inlineStringCell("B", rowNumber, expense.description, styleId = 1))
+                    append(inlineStringCell("C", rowNumber, row.categoryName, styleId = 1))
+                    append(inlineStringCell("D", rowNumber, expense.italianDate(), styleId = 2))
                 }
             }
             append("</row>")
@@ -76,8 +84,8 @@ private fun sheetXml(rows: List<ExportRow>): String =
         append("</sheetData></worksheet>")
     }
 
-private fun inlineStringCell(column: String, row: Int, value: String): String =
-    """<c r="$column$row" t="inlineStr"><is><t>${value.xmlEscaped()}</t></is></c>"""
+private fun inlineStringCell(column: String, row: Int, value: String, styleId: Int): String =
+    """<c r="$column$row" s="$styleId" t="inlineStr"><is><t>${value.xmlEscaped()}</t></is></c>"""
 
 private fun Long.negativeAmount(): String {
     val euros = this / 100
@@ -132,6 +140,7 @@ private val contentTypesXml = """
         <Default Extension="xml" ContentType="application/xml"/>
         <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
         <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+        <Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
     </Types>
 """.trimIndent()
 
@@ -155,5 +164,57 @@ private val workbookRelsXml = """
     <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
     <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
         <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
+        <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
     </Relationships>
+""".trimIndent()
+
+private val stylesXml = """
+    <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+        <fonts count="1">
+            <font>
+                <sz val="10"/>
+                <color theme="1"/>
+                <name val="Arial"/>
+                <family val="2"/>
+            </font>
+        </fonts>
+        <fills count="2">
+            <fill><patternFill patternType="none"/></fill>
+            <fill><patternFill patternType="gray125"/></fill>
+        </fills>
+        <borders count="2">
+            <border>
+                <left/>
+                <right/>
+                <top/>
+                <bottom/>
+                <diagonal/>
+            </border>
+            <border>
+                <left style="thin"><color rgb="FF000000"/></left>
+                <right style="thin"><color rgb="FF000000"/></right>
+                <top/>
+                <bottom/>
+                <diagonal/>
+            </border>
+        </borders>
+        <cellStyleXfs count="1">
+            <xf numFmtId="0" fontId="0" fillId="0" borderId="0"/>
+        </cellStyleXfs>
+        <cellXfs count="3">
+            <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>
+            <xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyAlignment="1" applyBorder="1">
+                <alignment horizontal="left"/>
+            </xf>
+            <xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyAlignment="1" applyBorder="1">
+                <alignment horizontal="right"/>
+            </xf>
+        </cellXfs>
+        <cellStyles count="1">
+            <cellStyle name="Normal" xfId="0" builtinId="0"/>
+        </cellStyles>
+        <dxfs count="0"/>
+        <tableStyles count="0" defaultTableStyle="TableStyleMedium9" defaultPivotStyle="PivotStyleLight16"/>
+    </styleSheet>
 """.trimIndent()

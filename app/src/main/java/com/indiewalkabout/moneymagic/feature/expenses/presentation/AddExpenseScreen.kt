@@ -10,11 +10,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuAnchorType
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -23,19 +18,22 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.indiewalkabout.moneymagic.R
 import com.indiewalkabout.moneymagic.feature.expenses.domain.model.Category
 import com.indiewalkabout.moneymagic.feature.expenses.domain.model.PaymentMethod
+import com.indiewalkabout.moneymagic.feature.expenses.domain.model.PaymentMethodType
+import com.indiewalkabout.moneymagic.feature.expenses.presentation.components.CategoryDropdown
+import com.indiewalkabout.moneymagic.feature.expenses.presentation.components.ExpandableOcrField
+import com.indiewalkabout.moneymagic.feature.expenses.presentation.components.ExpenseDateField
+import com.indiewalkabout.moneymagic.feature.expenses.presentation.components.PaymentMethodDropdown
 
 @Composable
 fun AddExpenseScreen(
@@ -66,6 +64,7 @@ fun AddExpenseScreen(
         onDateChanged = viewModel::onDateChanged,
         onTimeChanged = viewModel::onTimeChanged,
         onMerchantChanged = viewModel::onMerchantChanged,
+        onDescriptionChanged = viewModel::onDescriptionChanged,
         onNotesChanged = viewModel::onNotesChanged,
         onSave = viewModel::save,
         onBack = onBack,
@@ -83,6 +82,7 @@ private fun AddExpenseContent(
     onDateChanged: (String) -> Unit,
     onTimeChanged: (String) -> Unit,
     onMerchantChanged: (String) -> Unit,
+    onDescriptionChanged: (String) -> Unit,
     onNotesChanged: (String) -> Unit,
     onSave: () -> Unit,
     onBack: () -> Unit,
@@ -149,14 +149,11 @@ private fun AddExpenseContent(
                 enabled = !uiState.isSaving,
             )
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(
+                ExpenseDateField(
                     value = uiState.date,
                     onValueChange = onDateChanged,
                     modifier = Modifier.weight(1f),
                     enabled = !uiState.isSaving,
-                    label = { Text(stringResource(R.string.date)) },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 )
                 OutlinedTextField(
                     value = uiState.time,
@@ -165,7 +162,7 @@ private fun AddExpenseContent(
                     enabled = !uiState.isSaving,
                     label = { Text(stringResource(R.string.time)) },
                     singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
                 )
             }
             OutlinedTextField(
@@ -178,13 +175,18 @@ private fun AddExpenseContent(
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
             )
             OutlinedTextField(
-                value = uiState.notes,
-                onValueChange = onNotesChanged,
+                value = uiState.description,
+                onValueChange = onDescriptionChanged,
                 modifier = Modifier.fillMaxWidth(),
                 enabled = !uiState.isSaving,
-                label = { Text(stringResource(R.string.notes)) },
-                minLines = 3,
+                label = { Text(stringResource(R.string.description)) },
+                minLines = 2,
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+            )
+            ExpandableOcrField(
+                notes = uiState.notes,
+                onNotesChanged = onNotesChanged,
+                enabled = !uiState.isSaving,
             )
             Button(
                 onClick = onSave,
@@ -208,74 +210,36 @@ private fun AddExpenseError.label(): String =
         AddExpenseError.SaveFailed -> stringResource(R.string.unable_save_expense)
     }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@Preview(showBackground = true)
 @Composable
-private fun CategoryDropdown(
-    categories: List<Category>,
-    selectedCategoryId: Long?,
-    onCategorySelected: (Long?) -> Unit,
-    enabled: Boolean,
-) {
-    var expanded by remember { mutableStateOf(false) }
-    val selectedCategory = categories.firstOrNull { it.id == selectedCategoryId }
-    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { if (enabled) expanded = it }) {
-        OutlinedTextField(
-            value = selectedCategory?.name.orEmpty(),
-            onValueChange = {},
-            modifier = Modifier
-                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable, enabled)
-                .fillMaxWidth(),
-            enabled = enabled,
-            readOnly = true,
-            label = { Text(stringResource(R.string.select_category)) },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+private fun AddExpenseScreenPreview() {
+    MaterialTheme {
+        AddExpenseContent(
+            uiState = AddExpenseUiState(
+                name = "Fresh Market",
+                amount = "24.90",
+                categoryId = 1,
+                paymentMethodId = 7,
+                date = "2026-06-24",
+                time = "14:30",
+                merchant = "Fresh Market",
+                description = "SPESA 2026-06-24 14:30",
+                notes = "OCR text",
+                categories = listOf(Category(1, "SPESA", 0xFF00AA00, "spesa", 0, false)),
+                paymentMethods = listOf(PaymentMethod(7, "Card", PaymentMethodType.Card, false)),
+                canSave = true,
+            ),
+            onNameChanged = {},
+            onAmountChanged = {},
+            onCategorySelected = {},
+            onPaymentMethodSelected = {},
+            onDateChanged = {},
+            onTimeChanged = {},
+            onMerchantChanged = {},
+            onDescriptionChanged = {},
+            onNotesChanged = {},
+            onSave = {},
+            onBack = {},
         )
-        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            categories.forEach { category ->
-                DropdownMenuItem(
-                    text = { Text(category.name) },
-                    onClick = {
-                        onCategorySelected(category.id)
-                        expanded = false
-                    },
-                )
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun PaymentMethodDropdown(
-    paymentMethods: List<PaymentMethod>,
-    selectedPaymentMethodId: Long?,
-    onPaymentMethodSelected: (Long?) -> Unit,
-    enabled: Boolean,
-) {
-    var expanded by remember { mutableStateOf(false) }
-    val selectedPaymentMethod = paymentMethods.firstOrNull { it.id == selectedPaymentMethodId }
-    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { if (enabled) expanded = it }) {
-        OutlinedTextField(
-            value = selectedPaymentMethod?.name.orEmpty(),
-            onValueChange = {},
-            modifier = Modifier
-                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable, enabled)
-                .fillMaxWidth(),
-            enabled = enabled,
-            readOnly = true,
-            label = { Text(stringResource(R.string.select_payment_method)) },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-        )
-        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            paymentMethods.forEach { paymentMethod ->
-                DropdownMenuItem(
-                    text = { Text(paymentMethod.name) },
-                    onClick = {
-                        onPaymentMethodSelected(paymentMethod.id)
-                        expanded = false
-                    },
-                )
-            }
-        }
     }
 }

@@ -9,6 +9,7 @@ import com.indiewalkabout.moneymagic.feature.expenses.data.local.ExpenseDao
 import com.indiewalkabout.moneymagic.core.database.MoneyMagicDatabase
 import com.indiewalkabout.moneymagic.core.database.MoneyMagicDatabaseSeedCallback
 import com.indiewalkabout.moneymagic.core.database.MIGRATION_1_2
+import com.indiewalkabout.moneymagic.core.database.MIGRATION_2_3
 import com.indiewalkabout.moneymagic.feature.expenses.data.local.PaymentMethodDao
 import dagger.Module
 import dagger.Provides
@@ -32,7 +33,7 @@ object DatabaseModule {
             MoneyMagicDatabase::class.java,
             DATABASE_NAME,
         ).addCallback(MoneyMagicDatabaseSeedCallback)
-            .addMigrations(MIGRATION_1_2)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
             .build()
 
     @Provides

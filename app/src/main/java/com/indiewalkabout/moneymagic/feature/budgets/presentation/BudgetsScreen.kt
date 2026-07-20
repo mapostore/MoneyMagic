@@ -9,23 +9,15 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuAnchorType
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -33,8 +25,9 @@ import com.indiewalkabout.moneymagic.R
 import com.indiewalkabout.moneymagic.feature.budgets.domain.model.Budget
 import com.indiewalkabout.moneymagic.feature.budgets.domain.model.BudgetPeriod
 import com.indiewalkabout.moneymagic.feature.budgets.domain.model.BudgetProgress
+import com.indiewalkabout.moneymagic.feature.budgets.presentation.components.BudgetProgressRow
+import com.indiewalkabout.moneymagic.feature.budgets.presentation.components.BudgetScopeDropdown
 import com.indiewalkabout.moneymagic.feature.expenses.domain.model.Category
-import java.util.Locale
 
 @Composable
 fun BudgetsScreen(
@@ -43,6 +36,27 @@ fun BudgetsScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
+    BudgetsContent(
+        uiState = uiState,
+        onNameChanged = viewModel::onNameChanged,
+        onAmountChanged = viewModel::onAmountChanged,
+        onCategorySelected = viewModel::onCategorySelected,
+        onThresholdChanged = viewModel::onThresholdChanged,
+        onSaveBudget = viewModel::saveBudget,
+        modifier = modifier,
+    )
+}
+
+@Composable
+private fun BudgetsContent(
+    uiState: BudgetsUiState,
+    onNameChanged: (String) -> Unit,
+    onAmountChanged: (String) -> Unit,
+    onCategorySelected: (Long?) -> Unit,
+    onThresholdChanged: (String) -> Unit,
+    onSaveBudget: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -55,7 +69,7 @@ fun BudgetsScreen(
         )
         OutlinedTextField(
             value = uiState.name,
-            onValueChange = viewModel::onNameChanged,
+            onValueChange = onNameChanged,
             modifier = Modifier.fillMaxWidth(),
             enabled = !uiState.isSaving,
             label = { Text(stringResource(R.string.budget_name)) },
@@ -63,7 +77,7 @@ fun BudgetsScreen(
         )
         OutlinedTextField(
             value = uiState.amount,
-            onValueChange = viewModel::onAmountChanged,
+            onValueChange = onAmountChanged,
             modifier = Modifier.fillMaxWidth(),
             enabled = !uiState.isSaving,
             label = { Text(stringResource(R.string.monthly_limit)) },
@@ -73,12 +87,12 @@ fun BudgetsScreen(
         BudgetScopeDropdown(
             categories = uiState.categories,
             selectedCategoryId = uiState.selectedCategoryId,
-            onCategorySelected = viewModel::onCategorySelected,
+            onCategorySelected = onCategorySelected,
             enabled = !uiState.isSaving,
         )
         OutlinedTextField(
             value = uiState.thresholdPercent,
-            onValueChange = viewModel::onThresholdChanged,
+            onValueChange = onThresholdChanged,
             modifier = Modifier.fillMaxWidth(),
             enabled = !uiState.isSaving,
             label = { Text(stringResource(R.string.alert_threshold_percent)) },
@@ -89,7 +103,7 @@ fun BudgetsScreen(
             },
         )
         Button(
-            onClick = viewModel::saveBudget,
+            onClick = onSaveBudget,
             enabled = uiState.canSave && !uiState.isSaving,
             modifier = Modifier.fillMaxWidth(),
         ) {
@@ -128,104 +142,37 @@ fun BudgetsScreen(
     }
 }
 
+@Preview(showBackground = true)
 @Composable
-private fun BudgetProgressRow(
-    progress: BudgetProgress,
-    categories: List<Category>,
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(
-            text = "${progress.budget.name} - ${progress.budget.period.label()}",
-            style = MaterialTheme.typography.titleSmall,
-        )
-        Text(
-            text = progress.budget.scopeLabel(categories),
-            style = MaterialTheme.typography.bodySmall,
-        )
-        LinearProgressIndicator(
-            progress = { progress.percentUsed.coerceIn(0, 100) / 100f },
-            modifier = Modifier.fillMaxWidth(),
-        )
-        Text(
-            text = stringResource(
-                R.string.spent_of,
-                formatAmount(progress.spentMinor, progress.budget.currency),
-                formatAmount(progress.budget.amountMinor, progress.budget.currency),
+private fun BudgetsScreenPreview() {
+    val categories = listOf(Category(1, "SPESA", 0xFF00AA00, "spesa", 0, false))
+    MaterialTheme {
+        BudgetsContent(
+            uiState = BudgetsUiState(
+                name = "Monthly groceries",
+                amount = "300.00",
+                selectedCategoryId = 1,
+                categories = categories,
+                budgetProgress = listOf(
+                    BudgetProgress(
+                        budget = Budget(1, "Monthly groceries", 30000, "EUR", BudgetPeriod.Monthly, 1, 80, true),
+                        spentMinor = 18000,
+                        remainingMinor = 12000,
+                        percentUsed = 60,
+                        isNearTarget = false,
+                        isOverBudget = false,
+                    ),
+                ),
+                canSave = true,
             ),
-            style = MaterialTheme.typography.bodyMedium,
-        )
-        Text(
-            text = stringResource(
-                R.string.budget_progress_status,
-                progress.percentUsed,
-                formatAmount(progress.remainingMinor, progress.budget.currency),
-            ),
-            style = MaterialTheme.typography.bodySmall,
+            onNameChanged = {},
+            onAmountChanged = {},
+            onCategorySelected = {},
+            onThresholdChanged = {},
+            onSaveBudget = {},
         )
     }
 }
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun BudgetScopeDropdown(
-    categories: List<Category>,
-    selectedCategoryId: Long?,
-    onCategorySelected: (Long?) -> Unit,
-    enabled: Boolean,
-) {
-    var expanded by remember { mutableStateOf(false) }
-    val selectedLabel = categories.firstOrNull { it.id == selectedCategoryId }?.name
-        ?: stringResource(R.string.all_categories)
-
-    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { if (enabled) expanded = it }) {
-        OutlinedTextField(
-            value = selectedLabel,
-            onValueChange = {},
-            modifier = Modifier
-                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable, enabled)
-                .fillMaxWidth(),
-            enabled = enabled,
-            readOnly = true,
-            label = { Text(stringResource(R.string.budget_scope)) },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-        )
-        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.all_categories)) },
-                onClick = {
-                    onCategorySelected(null)
-                    expanded = false
-                },
-            )
-            categories.forEach { category ->
-                DropdownMenuItem(
-                    text = { Text(category.name) },
-                    onClick = {
-                        onCategorySelected(category.id)
-                        expanded = false
-                    },
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun Budget.scopeLabel(
-    categories: List<Category>,
-): String =
-    categoryId?.let { selectedCategoryId ->
-        categories.firstOrNull { it.id == selectedCategoryId }?.name
-    } ?: stringResource(R.string.all_categories)
-
-@Composable
-private fun BudgetPeriod.label(): String =
-    when (this) {
-        BudgetPeriod.Weekly -> stringResource(R.string.budget_period_weekly)
-        BudgetPeriod.Monthly -> stringResource(R.string.budget_period_monthly)
-        BudgetPeriod.Yearly -> stringResource(R.string.budget_period_yearly)
-        is BudgetPeriod.Custom -> stringResource(R.string.budget_period_custom)
-    }
 
 @Composable
 private fun BudgetError.label(): String =
@@ -233,8 +180,3 @@ private fun BudgetError.label(): String =
         BudgetError.InvalidForm -> stringResource(R.string.budget_invalid_form)
         BudgetError.SaveFailed -> stringResource(R.string.unable_save_budget)
     }
-
-private fun formatAmount(amountMinor: Long, currency: String): String {
-    val amount = amountMinor / 100.0
-    return "%s %.2f".format(Locale.getDefault(), currency, amount)
-}

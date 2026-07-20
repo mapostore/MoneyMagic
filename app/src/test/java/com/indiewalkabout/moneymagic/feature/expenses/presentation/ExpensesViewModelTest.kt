@@ -75,6 +75,30 @@ class ExpensesViewModelTest {
         assertEquals(listOf("Food", "Food"), viewModel.uiState.value.expenses.map { it.categoryName })
     }
 
+    @Test
+    fun deleteExpenseRemovesSelectedExpense() = runTest {
+        val repository = FakeExpensesHistoryRepository(
+            listOf(
+                testExpense(1, 900, "Coffee", "2026-06-24T08:00:00Z"),
+                testExpense(2, 5000, "Groceries", "2026-06-23T18:00:00Z"),
+            ),
+        )
+        val viewModel = ExpensesViewModel(
+            expenseRepository = repository,
+            categoryRepository = FakeExpenseCategoryRepository(),
+            paymentMethodRepository = FakeExpensePaymentMethodRepository(),
+            clock = clock,
+        )
+        backgroundScope.launch { viewModel.uiState.collect {} }
+        advanceUntilIdle()
+
+        viewModel.deleteExpense(1)
+        advanceUntilIdle()
+
+        assertEquals(listOf(1L), repository.deletedIds)
+        assertEquals(listOf("Groceries"), viewModel.uiState.value.expenses.map { it.expense.name })
+    }
+
     private fun testExpense(
         id: Long,
         amountMinor: Long,
@@ -91,6 +115,7 @@ class ExpensesViewModelTest {
             categoryId = 1,
             merchant = merchant,
             paymentMethodId = null,
+            description = "",
             notes = "",
             tags = emptyList(),
             createdAt = dateTime,
@@ -103,6 +128,7 @@ private class FakeExpensesHistoryRepository(
     expenses: List<Expense>,
 ) : ExpenseRepository {
     private val expensesFlow = MutableStateFlow(expenses)
+    val deletedIds = mutableListOf<Long>()
 
     override fun observeExpenses(): Flow<List<Expense>> = expensesFlow
 
@@ -111,7 +137,10 @@ private class FakeExpensesHistoryRepository(
 
     override suspend fun save(expense: Expense): Long = error("Not used")
 
-    override suspend fun delete(expenseId: Long) = Unit
+    override suspend fun delete(expenseId: Long) {
+        deletedIds += expenseId
+        expensesFlow.value = expensesFlow.value.filterNot { it.id == expenseId }
+    }
 }
 
 private class FakeExpenseCategoryRepository : CategoryRepository {

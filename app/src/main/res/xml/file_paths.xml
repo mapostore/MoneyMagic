@@ -3,4 +3,7 @@
     <cache-path
         name="receipt_images"
         path="receipt_images/" />
+    <cache-path
+        name="exports"
+        path="exports/" />
 </paths>

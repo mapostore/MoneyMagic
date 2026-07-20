@@ -8,7 +8,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -16,7 +15,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
@@ -30,6 +28,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -37,8 +36,13 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.indiewalkabout.moneymagic.R
 import com.indiewalkabout.moneymagic.feature.capture.domain.model.ReceiptCandidate
 import com.indiewalkabout.moneymagic.feature.capture.domain.model.ReceiptCandidateField
-import com.indiewalkabout.moneymagic.feature.capture.domain.model.ReceiptDraft
+import com.indiewalkabout.moneymagic.feature.capture.domain.model.ReceiptCandidates
 import com.indiewalkabout.moneymagic.feature.capture.domain.model.ReceiptDocumentType
+import com.indiewalkabout.moneymagic.feature.capture.domain.model.ReceiptDraft
+import com.indiewalkabout.moneymagic.feature.capture.domain.model.ReceiptFieldConfidence
+import com.indiewalkabout.moneymagic.feature.capture.presentation.components.ReceiptDraftCard
+import com.indiewalkabout.moneymagic.feature.capture.presentation.components.ReceiptScanDiagnosticsCard
+import com.indiewalkabout.moneymagic.feature.capture.presentation.components.RecognizedTextCard
 
 @Composable
 fun ReceiptCaptureScreen(
@@ -157,150 +161,9 @@ private fun ReceiptCaptureContent(
                         onShareRawText = onShareRawText,
                     )
                 }
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Text(
-                            text = stringResource(R.string.recognized_text),
-                            style = MaterialTheme.typography.titleSmall,
-                        )
-                        Text(text = uiState.rawText, style = MaterialTheme.typography.bodySmall)
-                    }
-                }
+                RecognizedTextCard(rawText = uiState.rawText)
             }
         }
-    }
-}
-
-@Composable
-private fun ReceiptScanDiagnosticsCard(
-    diagnostics: ReceiptScanDiagnostics,
-    rawText: String,
-    onShareRawText: (String) -> Unit,
-) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Text(
-                text = stringResource(R.string.scan_diagnostics),
-                style = MaterialTheme.typography.titleSmall,
-            )
-            DraftLine(label = stringResource(R.string.scan_source), value = diagnostics.source.label())
-            DraftLine(
-                label = stringResource(R.string.document_type),
-                value = diagnostics.documentType.label(),
-            )
-            DraftLine(
-                label = stringResource(R.string.scan_blocks),
-                value = diagnostics.blockCount.toString(),
-            )
-            DraftLine(
-                label = stringResource(R.string.scan_lines),
-                value = diagnostics.lineCount.toString(),
-            )
-            DraftLine(
-                label = stringResource(R.string.scan_elements),
-                value = diagnostics.elementCount.toString(),
-            )
-            DraftLine(
-                label = stringResource(R.string.scan_characters),
-                value = diagnostics.characterCount.toString(),
-            )
-            OutlinedButton(
-                onClick = { onShareRawText(rawText) },
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(stringResource(R.string.share_ocr_text))
-            }
-        }
-    }
-}
-
-@Composable
-private fun ReceiptDraftCard(
-    draft: ReceiptDraft,
-    onSelectCandidate: (ReceiptCandidateField, String) -> Unit,
-    onReviewExpense: () -> Unit,
-) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Text(
-                text = stringResource(R.string.receipt_draft),
-                style = MaterialTheme.typography.titleMedium,
-            )
-            DraftLine(label = stringResource(R.string.merchant), value = draft.merchant)
-            DraftLine(label = stringResource(R.string.amount), value = draft.amount)
-            DraftLine(label = stringResource(R.string.date), value = draft.date)
-            CandidateGroup(
-                title = stringResource(R.string.merchant_candidates),
-                candidates = draft.candidates.merchants,
-                selectedValue = draft.merchant,
-                onSelectCandidate = onSelectCandidate,
-            )
-            CandidateGroup(
-                title = stringResource(R.string.amount_candidates),
-                candidates = draft.candidates.amounts,
-                selectedValue = draft.amount,
-                onSelectCandidate = onSelectCandidate,
-            )
-            CandidateGroup(
-                title = stringResource(R.string.date_candidates),
-                candidates = draft.candidates.dates,
-                selectedValue = draft.date,
-                onSelectCandidate = onSelectCandidate,
-            )
-            Button(
-                onClick = onReviewExpense,
-                enabled = draft.amount.isNotBlank() || draft.merchant.isNotBlank(),
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(stringResource(R.string.review_expense))
-            }
-        }
-    }
-}
-
-@Composable
-private fun CandidateGroup(
-    title: String,
-    candidates: List<ReceiptCandidate>,
-    selectedValue: String,
-    onSelectCandidate: (ReceiptCandidateField, String) -> Unit,
-) {
-    val visibleCandidates = candidates
-        .distinctBy { it.value }
-        .filter { it.value.isNotBlank() }
-    if (visibleCandidates.size <= 1) return
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(text = title, style = MaterialTheme.typography.titleSmall)
-        FlowRow(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            visibleCandidates.forEach { candidate ->
-                OutlinedButton(
-                    onClick = { onSelectCandidate(candidate.field, candidate.value) },
-                    enabled = candidate.value != selectedValue,
-                ) {
-                    Text(candidate.value)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun DraftLine(label: String, value: String) {
-    if (value.isNotBlank()) {
-        Text(text = "$label: $value", style = MaterialTheme.typography.bodyMedium)
     }
 }
 
@@ -311,20 +174,54 @@ private fun ReceiptCaptureError.label(): String =
         ReceiptCaptureError.NoTextFound -> stringResource(R.string.receipt_no_text_found)
     }
 
+@Preview(showBackground = true)
 @Composable
-private fun ReceiptScanSource.label(): String =
-    when (this) {
-        ReceiptScanSource.Image -> stringResource(R.string.scan_source_image)
-        ReceiptScanSource.Camera -> stringResource(R.string.scan_source_camera)
+private fun ReceiptCaptureScreenPreview() {
+    MaterialTheme {
+        ReceiptCaptureContent(
+            uiState = ReceiptCaptureUiState(
+                draft = ReceiptDraft(
+                    merchant = "Fresh Market",
+                    amount = "24.90",
+                    date = "2026-06-24",
+                    rawText = "Fresh Market\nTOTAL 24.90",
+                    candidates = ReceiptCandidates(
+                        merchants = listOf(
+                            ReceiptCandidate(
+                                ReceiptCandidateField.Merchant,
+                                "Fresh Market",
+                                "merchant",
+                                ReceiptFieldConfidence.High,
+                            ),
+                        ),
+                        amounts = listOf(
+                            ReceiptCandidate(ReceiptCandidateField.Amount, "24.90", "total", ReceiptFieldConfidence.High),
+                            ReceiptCandidate(ReceiptCandidateField.Amount, "4.90", "line", ReceiptFieldConfidence.Low),
+                        ),
+                        dates = listOf(
+                            ReceiptCandidate(ReceiptCandidateField.Date, "2026-06-24", "date", ReceiptFieldConfidence.High),
+                        ),
+                    ),
+                ),
+                rawText = "Fresh Market\nTOTAL 24.90",
+                diagnostics = ReceiptScanDiagnostics(
+                    source = ReceiptScanSource.Image,
+                    documentType = ReceiptDocumentType.Receipt,
+                    lineCount = 8,
+                    blockCount = 2,
+                    elementCount = 24,
+                    characterCount = 180,
+                ),
+            ),
+            onPickImage = {},
+            onTakePicture = {},
+            onSelectCandidate = { _, _ -> },
+            onShareRawText = {},
+            onReviewExpense = {},
+            onBack = {},
+        )
     }
-
-@Composable
-private fun ReceiptDocumentType.label(): String =
-    when (this) {
-        ReceiptDocumentType.Receipt -> stringResource(R.string.document_type_receipt)
-        ReceiptDocumentType.BillInvoice -> stringResource(R.string.document_type_bill_invoice)
-        ReceiptDocumentType.Unknown -> stringResource(R.string.document_type_unknown)
-    }
+}
 
 private fun Context.shareReceiptOcrText(rawText: String) {
     val intent = Intent(Intent.ACTION_SEND)

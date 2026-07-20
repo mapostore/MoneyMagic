@@ -1,7 +1,10 @@
 package com.indiewalkabout.moneymagic.feature.settings.presentation
 
+import android.content.ActivityNotFoundException
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -13,7 +16,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -31,13 +33,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.core.content.FileProvider
 import com.indiewalkabout.moneymagic.R
 import com.indiewalkabout.moneymagic.feature.expenses.domain.model.Category
 import com.indiewalkabout.moneymagic.feature.expenses.domain.model.PaymentMethod
 import com.indiewalkabout.moneymagic.feature.expenses.domain.model.PaymentMethodType
+import com.indiewalkabout.moneymagic.feature.settings.presentation.components.CategoryCard
+import com.indiewalkabout.moneymagic.feature.settings.presentation.components.PaymentMethodCard
+import java.io.File
 
 @Composable
 fun SettingsScreen(
@@ -59,6 +66,48 @@ fun SettingsScreen(
         }
     }
 
+    SettingsContent(
+        uiState = uiState,
+        onExport = {
+            pendingExport = viewModel.createExpenseExport()
+            exportLauncher.launch("moneymagic-expenses.xlsx")
+        },
+        onShare = {
+            context.shareExpenseExport(viewModel.createExpenseExport())
+        },
+        onCategoryNameChanged = viewModel::onCategoryNameChanged,
+        onSaveCategory = viewModel::saveCategory,
+        onClearCategory = viewModel::clearCategoryForm,
+        onEditCategory = viewModel::editCategory,
+        onDeleteCategory = { category -> viewModel.deleteCategory(category.id) },
+        onPaymentMethodNameChanged = viewModel::onPaymentMethodNameChanged,
+        onPaymentMethodTypeChanged = viewModel::onPaymentMethodTypeChanged,
+        onSavePaymentMethod = viewModel::savePaymentMethod,
+        onClearPaymentMethod = viewModel::clearPaymentMethodForm,
+        onEditPaymentMethod = viewModel::editPaymentMethod,
+        onDeletePaymentMethod = { paymentMethod -> viewModel.deletePaymentMethod(paymentMethod.id) },
+        modifier = modifier,
+    )
+}
+
+@Composable
+private fun SettingsContent(
+    uiState: SettingsUiState,
+    onExport: () -> Unit,
+    onShare: () -> Unit,
+    onCategoryNameChanged: (String) -> Unit,
+    onSaveCategory: () -> Unit,
+    onClearCategory: () -> Unit,
+    onEditCategory: (Category) -> Unit,
+    onDeleteCategory: (Category) -> Unit,
+    onPaymentMethodNameChanged: (String) -> Unit,
+    onPaymentMethodTypeChanged: (PaymentMethodType) -> Unit,
+    onSavePaymentMethod: () -> Unit,
+    onClearPaymentMethod: () -> Unit,
+    onEditPaymentMethod: (PaymentMethod) -> Unit,
+    onDeletePaymentMethod: (PaymentMethod) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
@@ -74,33 +123,60 @@ fun SettingsScreen(
         item {
             ExportSection(
                 uiState = uiState,
-                onExport = {
-                    pendingExport = viewModel.createExpenseExport()
-                    exportLauncher.launch("moneymagic-expenses.xlsx")
-                },
+                onExport = onExport,
+                onShare = onShare,
             )
         }
         item {
             CategorySection(
                 uiState = uiState,
-                onNameChanged = viewModel::onCategoryNameChanged,
-                onSave = viewModel::saveCategory,
-                onClear = viewModel::clearCategoryForm,
-                onEdit = viewModel::editCategory,
-                onDelete = { category -> viewModel.deleteCategory(category.id) },
+                onNameChanged = onCategoryNameChanged,
+                onSave = onSaveCategory,
+                onClear = onClearCategory,
+                onEdit = onEditCategory,
+                onDelete = onDeleteCategory,
             )
         }
         item {
             PaymentMethodSection(
                 uiState = uiState,
-                onNameChanged = viewModel::onPaymentMethodNameChanged,
-                onTypeChanged = viewModel::onPaymentMethodTypeChanged,
-                onSave = viewModel::savePaymentMethod,
-                onClear = viewModel::clearPaymentMethodForm,
-                onEdit = viewModel::editPaymentMethod,
-                onDelete = { paymentMethod -> viewModel.deletePaymentMethod(paymentMethod.id) },
+                onNameChanged = onPaymentMethodNameChanged,
+                onTypeChanged = onPaymentMethodTypeChanged,
+                onSave = onSavePaymentMethod,
+                onClear = onClearPaymentMethod,
+                onEdit = onEditPaymentMethod,
+                onDelete = onDeletePaymentMethod,
             )
         }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun SettingsScreenPreview() {
+    MaterialTheme {
+        SettingsContent(
+            uiState = SettingsUiState(
+                categories = listOf(Category(1, "BENZINA", 0xFF00AA00, "benzina", 0, false)),
+                paymentMethods = listOf(PaymentMethod(7, "Card", PaymentMethodType.Card, false)),
+                categoryName = "SPESA",
+                paymentMethodName = "Cash",
+                paymentMethodType = PaymentMethodType.Cash,
+            ),
+            onExport = {},
+            onShare = {},
+            onCategoryNameChanged = {},
+            onSaveCategory = {},
+            onClearCategory = {},
+            onEditCategory = {},
+            onDeleteCategory = {},
+            onPaymentMethodNameChanged = {},
+            onPaymentMethodTypeChanged = {},
+            onSavePaymentMethod = {},
+            onClearPaymentMethod = {},
+            onEditPaymentMethod = {},
+            onDeletePaymentMethod = {},
+        )
     }
 }
 
@@ -108,6 +184,7 @@ fun SettingsScreen(
 private fun ExportSection(
     uiState: SettingsUiState,
     onExport: () -> Unit,
+    onShare: () -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(text = stringResource(R.string.export_data), style = MaterialTheme.typography.titleMedium)
@@ -117,6 +194,13 @@ private fun ExportSection(
             modifier = Modifier.fillMaxWidth(),
         ) {
             Text(stringResource(R.string.export_expenses_excel))
+        }
+        OutlinedButton(
+            onClick = onShare,
+            enabled = uiState.expenses.isNotEmpty(),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(stringResource(R.string.share_expenses_excel))
         }
         if (uiState.expenses.isEmpty()) {
             Text(
@@ -155,32 +239,6 @@ private fun CategorySection(
         }
         uiState.categories.forEach { category ->
             CategoryCard(category = category, onEdit = onEdit, onDelete = onDelete)
-        }
-    }
-}
-
-@Composable
-private fun CategoryCard(
-    category: Category,
-    onEdit: (Category) -> Unit,
-    onDelete: (Category) -> Unit,
-) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Text(
-                text = category.name,
-                modifier = Modifier.weight(1f),
-                style = MaterialTheme.typography.titleSmall,
-            )
-            OutlinedButton(onClick = { onEdit(category) }) {
-                Text(stringResource(R.string.edit))
-            }
-            OutlinedButton(onClick = { onDelete(category) }) {
-                Text(stringResource(R.string.delete))
-            }
         }
     }
 }
@@ -255,31 +313,6 @@ private fun PaymentMethodTypeDropdown(
 }
 
 @Composable
-private fun PaymentMethodCard(
-    paymentMethod: PaymentMethod,
-    onEdit: (PaymentMethod) -> Unit,
-    onDelete: (PaymentMethod) -> Unit,
-) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(text = paymentMethod.name, style = MaterialTheme.typography.titleSmall)
-                Text(text = paymentMethod.type.label(), style = MaterialTheme.typography.bodySmall)
-            }
-            OutlinedButton(onClick = { onEdit(paymentMethod) }) {
-                Text(stringResource(R.string.edit))
-            }
-            OutlinedButton(onClick = { onDelete(paymentMethod) }) {
-                Text(stringResource(R.string.delete))
-            }
-        }
-    }
-}
-
-@Composable
 private fun PaymentMethodType.label(): String =
     stringResource(
         when (this) {
@@ -293,5 +326,24 @@ private fun PaymentMethodType.label(): String =
 private fun Context.writeBytes(uri: Uri, bytes: ByteArray) {
     contentResolver.openOutputStream(uri)?.use { output ->
         output.write(bytes)
+    }
+}
+
+private fun Context.shareExpenseExport(bytes: ByteArray) {
+    val exportDir = File(cacheDir, "exports").apply { mkdirs() }
+    val exportFile = File(exportDir, "moneymagic-expenses.xlsx").apply {
+        writeBytes(bytes)
+    }
+    val uri = FileProvider.getUriForFile(this, "$packageName.fileprovider", exportFile)
+    val intent = Intent(Intent.ACTION_SEND).apply {
+        type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        putExtra(Intent.EXTRA_STREAM, uri)
+        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    }
+
+    try {
+        startActivity(Intent.createChooser(intent, getString(R.string.share_expenses_excel_title)))
+    } catch (_: ActivityNotFoundException) {
+        Toast.makeText(this, R.string.share_expenses_excel_unavailable, Toast.LENGTH_SHORT).show()
     }
 }

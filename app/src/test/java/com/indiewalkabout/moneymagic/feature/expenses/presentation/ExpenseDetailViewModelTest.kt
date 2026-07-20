@@ -64,6 +64,95 @@ class ExpenseDetailViewModelTest {
         assertEquals(7L, state.paymentMethodId)
         assertEquals("Food", state.categories.single().name)
         assertEquals("Card", state.paymentMethods.single().name)
+        assertEquals("Quick coffee", state.description)
+    }
+
+    @Test
+    fun loadInitializesBlankDescriptionWithCategoryDateAndTime() = runTest {
+        val viewModel = testViewModel(
+            FakeDetailExpenseRepository(listOf(testExpense().copy(description = ""))),
+        )
+
+        viewModel.load(42)
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals("  Food ${state.date} ${state.time}", state.description)
+    }
+
+    @Test
+    fun blankDescriptionAutoDefaultDoesNotOverwriteUserEditOnRefresh() = runTest {
+        val repository = FakeDetailExpenseRepository(listOf(testExpense().copy(description = "")))
+        val viewModel = testViewModel(repository)
+
+        viewModel.load(42)
+        advanceUntilIdle()
+        viewModel.onDescriptionChanged("Manual description")
+        repository.refresh(testExpense().copy(description = ""))
+        advanceUntilIdle()
+
+        assertEquals("Manual description", viewModel.uiState.value.description)
+    }
+
+    @Test
+    fun suggestsCategoryFromDescriptionWhenCurrentCategoryIsMissing() = runTest {
+        val viewModel = testViewModel(
+            repository = FakeDetailExpenseRepository(listOf(testExpense().copy(categoryId = 999))),
+            categoryRepository = FakeDetailCategoryRepository(
+                listOf(
+                    testCategory(id = 1, name = "Food"),
+                    testCategory(id = 2, name = "BENZINA"),
+                ),
+            ),
+        )
+
+        viewModel.load(42)
+        advanceUntilIdle()
+        viewModel.onDescriptionChanged("rifornimento benzina")
+        advanceUntilIdle()
+
+        assertEquals(2L, viewModel.uiState.value.categoryId)
+    }
+
+    @Test
+    fun keepsExistingCategoryWhenTextMatchesAnotherCategory() = runTest {
+        val viewModel = testViewModel(
+            repository = FakeDetailExpenseRepository(listOf(testExpense().copy(categoryId = 1))),
+            categoryRepository = FakeDetailCategoryRepository(
+                listOf(
+                    testCategory(id = 1, name = "Food"),
+                    testCategory(id = 2, name = "BENZINA"),
+                ),
+            ),
+        )
+
+        viewModel.load(42)
+        advanceUntilIdle()
+        viewModel.onCategorySelected(1)
+        viewModel.onDescriptionChanged("benzina")
+        advanceUntilIdle()
+
+        assertEquals(1L, viewModel.uiState.value.categoryId)
+    }
+
+    @Test
+    fun doesNotSuggestCategoryWhenLoadedCategoryIsValid() = runTest {
+        val viewModel = testViewModel(
+            repository = FakeDetailExpenseRepository(listOf(testExpense().copy(categoryId = 1))),
+            categoryRepository = FakeDetailCategoryRepository(
+                listOf(
+                    testCategory(id = 1, name = "Food"),
+                    testCategory(id = 2, name = "BENZINA"),
+                ),
+            ),
+        )
+
+        viewModel.load(42)
+        advanceUntilIdle()
+        viewModel.onDescriptionChanged("benzina")
+        advanceUntilIdle()
+
+        assertEquals(1L, viewModel.uiState.value.categoryId)
     }
 
     @Test
@@ -76,7 +165,8 @@ class ExpenseDetailViewModelTest {
         viewModel.onNameChanged("Updated coffee")
         viewModel.onAmountChanged("15.75")
         viewModel.onMerchantChanged("New Cafe")
-        viewModel.onNotesChanged("Better beans")
+        viewModel.onDescriptionChanged("Better beans")
+        viewModel.onNotesChanged("OCR payload")
         viewModel.save()
         advanceUntilIdle()
 
@@ -90,7 +180,8 @@ class ExpenseDetailViewModelTest {
         assertEquals(Instant.parse("2026-06-20T09:00:00Z"), saved.createdAt)
         assertEquals(Instant.parse("2026-06-24T12:30:00Z"), saved.updatedAt)
         assertEquals("New Cafe", saved.merchant)
-        assertEquals("Better beans", saved.notes)
+        assertEquals("Better beans", saved.description)
+        assertEquals("OCR payload", saved.notes)
     }
 
     @Test
@@ -115,17 +206,49 @@ class ExpenseDetailViewModelTest {
 
         viewModel.load(42)
         advanceUntilIdle()
-        viewModel.delete()
+        viewModel.confirmDelete()
         advanceUntilIdle()
 
         assertEquals(listOf(42L), repository.deletedIds)
         assertTrue(viewModel.uiState.value.isDeleted)
     }
 
-    private fun testViewModel(repository: ExpenseRepository): ExpenseDetailViewModel =
+    @Test
+    fun requestDeleteShowsConfirmationWithoutDeleting() = runTest {
+        val repository = FakeDetailExpenseRepository(listOf(testExpense()))
+        val viewModel = testViewModel(repository)
+
+        viewModel.load(42)
+        advanceUntilIdle()
+        viewModel.requestDeleteConfirmation()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.showDeleteConfirmation)
+        assertEquals(emptyList<Long>(), repository.deletedIds)
+    }
+
+    @Test
+    fun dismissDeleteConfirmationHidesConfirmationWithoutDeleting() = runTest {
+        val repository = FakeDetailExpenseRepository(listOf(testExpense()))
+        val viewModel = testViewModel(repository)
+
+        viewModel.load(42)
+        advanceUntilIdle()
+        viewModel.requestDeleteConfirmation()
+        viewModel.dismissDeleteConfirmation()
+        advanceUntilIdle()
+
+        assertFalse(viewModel.uiState.value.showDeleteConfirmation)
+        assertEquals(emptyList<Long>(), repository.deletedIds)
+    }
+
+    private fun testViewModel(
+        repository: ExpenseRepository,
+        categoryRepository: CategoryRepository = FakeDetailCategoryRepository(),
+    ): ExpenseDetailViewModel =
         ExpenseDetailViewModel(
             expenseRepository = repository,
-            categoryRepository = FakeDetailCategoryRepository(),
+            categoryRepository = categoryRepository,
             paymentMethodRepository = FakeDetailPaymentMethodRepository(),
             validateExpense = ValidateExpenseUseCase(),
             clock = clock,
@@ -141,6 +264,7 @@ class ExpenseDetailViewModelTest {
             categoryId = 1,
             merchant = "Corner Cafe",
             paymentMethodId = 7,
+            description = "Quick coffee",
             notes = "Morning stop",
             tags = listOf("demo"),
             createdAt = Instant.parse("2026-06-20T09:00:00Z"),
@@ -154,6 +278,10 @@ private class FakeDetailExpenseRepository(
     private val expensesFlow = MutableStateFlow(expenses)
     val savedExpenses = mutableListOf<Expense>()
     val deletedIds = mutableListOf<Long>()
+
+    fun refresh(expense: Expense) {
+        expensesFlow.value = expensesFlow.value.filterNot { it.id == expense.id } + expense
+    }
 
     override fun observeExpenses(): Flow<List<Expense>> = expensesFlow
 
@@ -172,20 +300,21 @@ private class FakeDetailExpenseRepository(
     }
 }
 
-private class FakeDetailCategoryRepository : CategoryRepository {
+private fun testCategory(id: Long, name: String): Category =
+    Category(
+        id = id,
+        name = name,
+        color = 0xFF00AA00,
+        iconKey = name.lowercase(),
+        sortOrder = id.toInt(),
+        archived = false,
+    )
+
+private class FakeDetailCategoryRepository(
+    private val categories: List<Category> = listOf(testCategory(id = 1, name = "Food")),
+) : CategoryRepository {
     override fun observeCategories(includeArchived: Boolean): Flow<List<Category>> =
-        flowOf(
-            listOf(
-                Category(
-                    id = 1,
-                    name = "Food",
-                    color = 0xFF00AA00,
-                    iconKey = "food",
-                    sortOrder = 0,
-                    archived = false,
-                ),
-            ),
-        )
+        flowOf(categories)
 
     override suspend fun save(category: Category): Long = error("Not used")
 

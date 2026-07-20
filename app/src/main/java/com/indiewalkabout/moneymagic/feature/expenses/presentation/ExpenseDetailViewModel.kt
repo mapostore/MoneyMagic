@@ -21,8 +21,11 @@ import java.util.Locale
 import javax.inject.Inject
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.update
@@ -39,6 +42,7 @@ data class ExpenseDetailUiState(
     val date: String = "",
     val time: String = "",
     val merchant: String = "",
+    val description: String = "",
     val notes: String = "",
     val categories: List<Category> = emptyList(),
     val paymentMethods: List<PaymentMethod> = emptyList(),
@@ -47,6 +51,7 @@ data class ExpenseDetailUiState(
     val isSaving: Boolean = false,
     val isSaved: Boolean = false,
     val isDeleting: Boolean = false,
+    val showDeleteConfirmation: Boolean = false,
     val isDeleted: Boolean = false,
 )
 
@@ -60,6 +65,11 @@ enum class ExpenseDetailError {
     DeleteFailed,
 }
 
+enum class ExpenseDetailEvent {
+    Saved,
+    Deleted,
+}
+
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class ExpenseDetailViewModel @Inject constructor(
@@ -71,13 +81,22 @@ class ExpenseDetailViewModel @Inject constructor(
 ) : ViewModel() {
     private val expenseId = MutableStateFlow<Long?>(null)
     private val _uiState = MutableStateFlow(ExpenseDetailUiState())
+    private val _events = MutableSharedFlow<ExpenseDetailEvent>()
     val uiState: StateFlow<ExpenseDetailUiState> = _uiState.asStateFlow()
+    val events: SharedFlow<ExpenseDetailEvent> = _events.asSharedFlow()
     private var loadedExpense: Expense? = null
+    private var descriptionEditedByUser = false
+    private var categorySelectedByUser = false
 
     init {
         viewModelScope.launch {
             categoryRepository.observeCategories().collect { categories ->
-                _uiState.update { state -> state.copy(categories = categories).withSaveEligibility() }
+                _uiState.update { state ->
+                    state
+                        .copy(categories = categories)
+                        .withSuggestedCategoryIfNeeded()
+                        .withSaveEligibility()
+                }
             }
         }
         viewModelScope.launch {
@@ -100,11 +119,16 @@ class ExpenseDetailViewModel @Inject constructor(
                         loadedExpense = expense
                         _uiState.update { state ->
                             expense
-                                .toUiState(state.categories, state.paymentMethods)
+                                .toUiState(
+                                    categories = state.categories,
+                                    paymentMethods = state.paymentMethods,
+                                    shouldAutoDescription = !descriptionEditedByUser,
+                                )
                                 .copy(
                                     errorMessage = state.errorMessage,
                                     isSaved = state.isSaved,
                                     isDeleting = state.isDeleting,
+                                    showDeleteConfirmation = state.showDeleteConfirmation,
                                     isDeleted = state.isDeleted,
                                 )
                                 .withSaveEligibility()
@@ -118,12 +142,26 @@ class ExpenseDetailViewModel @Inject constructor(
         if (this.expenseId.value == expenseId) {
             return
         }
+        val currentState = _uiState.value
         this.expenseId.value = expenseId
-        _uiState.update { ExpenseDetailUiState(expenseId = expenseId) }
+        loadedExpense = null
+        descriptionEditedByUser = false
+        categorySelectedByUser = false
+        _uiState.update {
+            ExpenseDetailUiState(
+                expenseId = expenseId,
+                categories = currentState.categories,
+                paymentMethods = currentState.paymentMethods,
+            )
+        }
     }
 
     fun onNameChanged(name: String) {
-        _uiState.update { it.copy(name = name, isSaved = false, errorMessage = null).withSaveEligibility() }
+        _uiState.update {
+            it.copy(name = name, isSaved = false, errorMessage = null)
+                .withSuggestedCategoryIfNeeded()
+                .withSaveEligibility()
+        }
     }
 
     fun onAmountChanged(amount: String) {
@@ -131,6 +169,7 @@ class ExpenseDetailViewModel @Inject constructor(
     }
 
     fun onCategorySelected(categoryId: Long?) {
+        categorySelectedByUser = true
         _uiState.update { it.copy(categoryId = categoryId, isSaved = false, errorMessage = null).withSaveEligibility() }
     }
 
@@ -147,11 +186,25 @@ class ExpenseDetailViewModel @Inject constructor(
     }
 
     fun onMerchantChanged(merchant: String) {
-        _uiState.update { it.copy(merchant = merchant, isSaved = false, errorMessage = null) }
+        _uiState.update {
+            it.copy(merchant = merchant, isSaved = false, errorMessage = null)
+                .withSuggestedCategoryIfNeeded()
+        }
+    }
+
+    fun onDescriptionChanged(description: String) {
+        descriptionEditedByUser = true
+        _uiState.update {
+            it.copy(description = description, isSaved = false, errorMessage = null)
+                .withSuggestedCategoryIfNeeded()
+        }
     }
 
     fun onNotesChanged(notes: String) {
-        _uiState.update { it.copy(notes = notes, isSaved = false, errorMessage = null) }
+        _uiState.update {
+            it.copy(notes = notes, isSaved = false, errorMessage = null)
+                .withSuggestedCategoryIfNeeded()
+        }
     }
 
     fun save() {
@@ -185,12 +238,14 @@ class ExpenseDetailViewModel @Inject constructor(
                         categoryId = requireNotNull(state.categoryId),
                         merchant = state.merchant.trim(),
                         paymentMethodId = state.paymentMethodId,
+                        description = state.description.trim(),
                         notes = state.notes.trim(),
                         updatedAt = Instant.now(clock),
                     ),
                 )
             }.onSuccess {
                 _uiState.update { it.copy(isSaving = false, isSaved = true, errorMessage = null) }
+                _events.emit(ExpenseDetailEvent.Saved)
             }.onFailure {
                 _uiState.update {
                     it.copy(isSaving = false, isSaved = false, errorMessage = ExpenseDetailError.SaveFailed)
@@ -199,16 +254,32 @@ class ExpenseDetailViewModel @Inject constructor(
         }
     }
 
-    fun delete() {
+    fun requestDeleteConfirmation() {
+        val state = uiState.value
+        if (state.expenseId == null || state.isDeleting || state.isSaving) {
+            return
+        }
+        _uiState.update { it.copy(showDeleteConfirmation = true, errorMessage = null) }
+    }
+
+    fun dismissDeleteConfirmation() {
+        if (uiState.value.isDeleting) {
+            return
+        }
+        _uiState.update { it.copy(showDeleteConfirmation = false) }
+    }
+
+    fun confirmDelete() {
         val id = uiState.value.expenseId ?: return
         if (uiState.value.isDeleting || uiState.value.isSaving) {
             return
         }
-        _uiState.update { it.copy(isDeleting = true, errorMessage = null) }
+        _uiState.update { it.copy(isDeleting = true, showDeleteConfirmation = false, errorMessage = null) }
         viewModelScope.launch {
             runCatching { expenseRepository.delete(id) }
                 .onSuccess {
                     _uiState.update { it.copy(isDeleting = false, isDeleted = true, errorMessage = null) }
+                    _events.emit(ExpenseDetailEvent.Deleted)
                 }
                 .onFailure {
                     _uiState.update {
@@ -229,13 +300,56 @@ class ExpenseDetailViewModel @Inject constructor(
                 !isDeleting,
         )
     }
+
+    private fun ExpenseDetailUiState.withSuggestedCategoryIfNeeded(): ExpenseDetailUiState {
+        if (categories.isEmpty() || categorySelectedByUser || categoryId != null && categories.any { it.id == categoryId }) {
+            return this
+        }
+        val suggestedCategoryId = suggestCategoryId(
+            categories = categories,
+            text = listOf(name, merchant, description, notes).joinToString(" "),
+        ) ?: return this
+        return copy(categoryId = suggestedCategoryId)
+    }
 }
+
+private fun suggestCategoryId(categories: List<Category>, text: String): Long? {
+    val normalizedText = text.normalizedCategoryText()
+    if (normalizedText.isBlank()) return null
+
+    return categories
+        .mapNotNull { category ->
+            val normalizedName = category.name.normalizedCategoryText()
+            if (normalizedName.isBlank()) {
+                null
+            } else {
+                val score = when {
+                    normalizedText.contains(normalizedName) -> 100 + normalizedName.length
+                    normalizedName.split(' ').filter { it.length >= 4 }.any { normalizedText.contains(it) } -> 50
+                    else -> 0
+                }
+                score.takeIf { it > 0 }?.let { it to category.id }
+            }
+        }
+        .maxByOrNull { it.first }
+        ?.second
+}
+
+private fun String.normalizedCategoryText(): String =
+    lowercase(Locale.ROOT)
+        .replace('_', ' ')
+        .replace(Regex("[^a-z0-9àèéìòù]+"), " ")
+        .trim()
 
 private fun Expense.toUiState(
     categories: List<Category>,
     paymentMethods: List<PaymentMethod>,
+    shouldAutoDescription: Boolean,
 ): ExpenseDetailUiState {
     val zonedDateTime = dateTime.atZone(ZoneId.systemDefault())
+    val displayDate = zonedDateTime.toLocalDate().toString()
+    val displayTime = zonedDateTime.toLocalTime().withSecond(0).withNano(0).toString()
+    val categoryName = categories.firstOrNull { it.id == categoryId }?.name.orEmpty()
     return ExpenseDetailUiState(
         expenseId = id,
         isLoading = false,
@@ -244,14 +358,26 @@ private fun Expense.toUiState(
         amount = "%.2f".format(Locale.US, amountMinor / 100.0),
         categoryId = categoryId,
         paymentMethodId = paymentMethodId,
-        date = zonedDateTime.toLocalDate().toString(),
-        time = zonedDateTime.toLocalTime().withSecond(0).withNano(0).toString(),
+        date = displayDate,
+        time = displayTime,
         merchant = merchant,
+        description = description.ifBlank {
+            if (shouldAutoDescription) {
+                buildAutoDescription(categoryName = categoryName, date = displayDate, time = displayTime)
+            } else {
+                ""
+            }
+        },
         notes = notes,
         categories = categories,
         paymentMethods = paymentMethods,
     )
 }
+
+private fun buildAutoDescription(categoryName: String, date: String, time: String): String =
+    listOf(categoryName, date, time)
+        .filter(String::isNotBlank)
+        .joinToString(separator = " ", prefix = "  ")
 
 private fun ExpenseDetailUiState.toInstantOrNull(): Instant? =
     try {

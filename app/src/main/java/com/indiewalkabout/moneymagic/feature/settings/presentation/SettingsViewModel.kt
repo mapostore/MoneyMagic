@@ -167,5 +167,6 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    fun createExpenseExport(): ByteArray = exportExpensesXlsx(uiState.value.expenses)
+    fun createExpenseExport(): ByteArray =
+        exportExpensesXlsx(uiState.value.expenses, uiState.value.categories)
 }
