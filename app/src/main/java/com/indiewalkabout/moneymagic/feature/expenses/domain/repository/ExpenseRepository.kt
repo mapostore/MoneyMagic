@@ -8,4 +8,5 @@ interface ExpenseRepository {
     fun observeExpense(expenseId: Long): Flow<Expense?>
     suspend fun save(expense: Expense): Long
     suspend fun delete(expenseId: Long)
+    suspend fun deleteAll()
 }

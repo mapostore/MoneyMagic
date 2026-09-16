@@ -69,6 +69,8 @@
     <string name="save">Salva</string>
     <string name="saving">Salvataggio</string>
     <string name="settings_title">Impostazioni</string>
+    <string name="back">Indietro</string>
+    <string name="manage_spending_data">Dati delle spese</string>
     <string name="export_data">Esporta dati</string>
     <string name="export_expenses_excel">Esporta spese Excel</string>
     <string name="share_expenses_excel">Condividi spese Excel</string>
@@ -84,6 +86,13 @@
     <string name="update">Aggiorna</string>
     <string name="edit">Modifica</string>
     <string name="delete">Elimina</string>
+    <string name="expense_history_controls">Storico spese</string>
+    <string name="delete_all_expenses">Elimina tutte le spese</string>
+    <string name="delete_all_expenses_title">Eliminare tutto lo storico spese?</string>
+    <string name="delete_all_expenses_message">Questa operazione elimina definitivamente tutte le spese salvate sul dispositivo. Categorie, metodi di pagamento e budget vengono mantenuti.</string>
+    <string name="type_yes_to_confirm">Scrivi yes per confermare.</string>
+    <string name="confirmation">Conferma</string>
+    <string name="delete_all_expenses_failed">Impossibile eliminare lo storico spese. Riprova.</string>
     <string name="remove_expense">Rimuovi</string>
     <string name="remove_expense_title">Rimuovere la spesa?</string>
     <string name="remove_expense_message">Questa spesa verrà rimossa dallo storico locale.</string>
@@ -103,6 +112,8 @@
     <string name="choose_category">Scegli una categoria.</string>
     <string name="enter_valid_amount">Inserisci un importo valido.</string>
     <string name="enter_valid_date_time">Inserisci data e ora valide.</string>
+    <string name="missing_expense_fields_title">Completa i campi richiesti</string>
+    <string name="missing_expense_fields_message">Prima di salvare, controlla:</string>
     <string name="unable_save_expense">Impossibile salvare la spesa. Riprova.</string>
     <string name="bottom_nav_dashboard">Dashboard</string>
     <string name="bottom_nav_expenses">Spese</string>

@@ -24,6 +24,8 @@ import com.indiewalkabout.moneymagic.feature.expenses.presentation.AddExpenseScr
 import com.indiewalkabout.moneymagic.feature.expenses.presentation.ExpenseDraftInput
 import com.indiewalkabout.moneymagic.feature.expenses.presentation.ExpenseDetailScreen
 import com.indiewalkabout.moneymagic.feature.expenses.presentation.ExpensesScreen
+import com.indiewalkabout.moneymagic.feature.settings.presentation.CategoryManagementScreen
+import com.indiewalkabout.moneymagic.feature.settings.presentation.PaymentMethodManagementScreen
 import com.indiewalkabout.moneymagic.feature.settings.presentation.SettingsScreen
 import kotlinx.serialization.Serializable
 
@@ -120,7 +122,26 @@ fun MoneyMagicNavHost(modifier: Modifier = Modifier) {
                     )
                 }
                 entry<BudgetsRoute> { BudgetsScreen() }
-                entry<SettingsRoute> { SettingsScreen() }
+                entry<SettingsRoute> {
+                    SettingsScreen(
+                        onCategoriesClick = { backStack.add(CategoryManagementRoute) },
+                        onPaymentMethodsClick = { backStack.add(PaymentMethodManagementRoute) },
+                    )
+                }
+                entry<CategoryManagementRoute> {
+                    CategoryManagementScreen(
+                        onBack = {
+                            if (backStack.size > 1) backStack.removeAt(backStack.lastIndex)
+                        },
+                    )
+                }
+                entry<PaymentMethodManagementRoute> {
+                    PaymentMethodManagementScreen(
+                        onBack = {
+                            if (backStack.size > 1) backStack.removeAt(backStack.lastIndex)
+                        },
+                    )
+                }
                 entry<ExpenseDetailRoute> { route ->
                     ExpenseDetailScreen(
                         expenseId = route.expenseId,
@@ -185,6 +206,12 @@ internal data object BudgetsRoute : MoneyMagicRoute
 
 @Serializable
 internal data object SettingsRoute : MoneyMagicRoute
+
+@Serializable
+internal data object CategoryManagementRoute : MoneyMagicRoute
+
+@Serializable
+internal data object PaymentMethodManagementRoute : MoneyMagicRoute
 
 private fun AddExpenseRoute.toDraftInput(): ExpenseDraftInput? {
     if (listOf(draftName, draftAmount, draftDate, draftMerchant, draftNotes).all { it.isNullOrBlank() }) {

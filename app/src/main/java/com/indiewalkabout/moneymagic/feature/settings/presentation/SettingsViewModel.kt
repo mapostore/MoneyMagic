@@ -12,6 +12,7 @@ import com.indiewalkabout.moneymagic.feature.expenses.domain.repository.PaymentM
 import com.indiewalkabout.moneymagic.feature.settings.domain.usecase.ExportExpensesXlsxUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -30,7 +31,14 @@ data class SettingsUiState(
     val paymentMethodName: String = "",
     val paymentMethodType: PaymentMethodType = PaymentMethodType.Card,
     val editingPaymentMethodId: Long? = null,
-)
+    val showDeleteAllConfirmation: Boolean = false,
+    val deleteAllConfirmationText: String = "",
+    val isDeletingAllExpenses: Boolean = false,
+    val deleteAllExpensesFailed: Boolean = false,
+) {
+    val canDeleteAllExpenses: Boolean
+        get() = deleteAllConfirmationText.trim() == "yes" && !isDeletingAllExpenses
+}
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
@@ -163,6 +171,65 @@ class SettingsViewModel @Inject constructor(
             paymentMethodRepository.archive(paymentMethodId)
             if (formState.value.editingPaymentMethodId == paymentMethodId) {
                 clearPaymentMethodForm()
+            }
+        }
+    }
+
+    fun showDeleteAllConfirmation() {
+        formState.update {
+            it.copy(
+                showDeleteAllConfirmation = true,
+                deleteAllConfirmationText = "",
+                deleteAllExpensesFailed = false,
+            )
+        }
+    }
+
+    fun dismissDeleteAllConfirmation() {
+        formState.update {
+            it.copy(
+                showDeleteAllConfirmation = false,
+                deleteAllConfirmationText = "",
+                deleteAllExpensesFailed = false,
+            )
+        }
+    }
+
+    fun onDeleteAllConfirmationChanged(text: String) {
+        formState.update {
+            it.copy(
+                deleteAllConfirmationText = text,
+                deleteAllExpensesFailed = false,
+            )
+        }
+    }
+
+    fun deleteAllExpenses() {
+        if (!formState.value.canDeleteAllExpenses) {
+            return
+        }
+
+        viewModelScope.launch {
+            formState.update {
+                it.copy(
+                    isDeletingAllExpenses = true,
+                    deleteAllExpensesFailed = false,
+                )
+            }
+            try {
+                expenseRepository.deleteAll()
+                formState.update {
+                    it.copy(
+                        showDeleteAllConfirmation = false,
+                        deleteAllConfirmationText = "",
+                    )
+                }
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (_: Exception) {
+                formState.update { it.copy(deleteAllExpensesFailed = true) }
+            } finally {
+                formState.update { it.copy(isDeletingAllExpenses = false) }
             }
         }
     }

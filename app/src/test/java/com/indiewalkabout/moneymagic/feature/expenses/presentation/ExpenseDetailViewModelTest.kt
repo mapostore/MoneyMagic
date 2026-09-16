@@ -200,6 +200,31 @@ class ExpenseDetailViewModelTest {
     }
 
     @Test
+    fun saveWithMissingRequiredFieldsShowsMissingFieldsDialogWithoutSaving() = runTest {
+        val repository = FakeDetailExpenseRepository(listOf(testExpense()))
+        val viewModel = testViewModel(repository)
+
+        viewModel.load(42)
+        advanceUntilIdle()
+        viewModel.onAmountChanged("")
+        viewModel.onCategorySelected(null)
+        viewModel.onDateChanged("bad-date")
+        viewModel.save()
+        advanceUntilIdle()
+
+        assertEquals(0, repository.savedExpenses.size)
+        assertTrue(viewModel.uiState.value.showMissingFieldsDialog)
+        assertEquals(
+            listOf(
+                ExpenseDetailError.EnterAmount,
+                ExpenseDetailError.MissingCategory,
+                ExpenseDetailError.InvalidDateTime,
+            ),
+            viewModel.uiState.value.missingFieldErrors,
+        )
+    }
+
+    @Test
     fun deleteRemovesExpenseAndMarksDeleted() = runTest {
         val repository = FakeDetailExpenseRepository(listOf(testExpense()))
         val viewModel = testViewModel(repository)
@@ -297,6 +322,10 @@ private class FakeDetailExpenseRepository(
     override suspend fun delete(expenseId: Long) {
         deletedIds += expenseId
         expensesFlow.value = expensesFlow.value.filterNot { it.id == expenseId }
+    }
+
+    override suspend fun deleteAll() {
+        expensesFlow.value = emptyList()
     }
 }
 

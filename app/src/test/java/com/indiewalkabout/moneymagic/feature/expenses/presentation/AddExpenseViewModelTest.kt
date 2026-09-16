@@ -235,6 +235,8 @@ private class FakeExpenseRepository(
     }
 
     override suspend fun delete(expenseId: Long) = Unit
+
+    override suspend fun deleteAll() = Unit
 }
 
 private class FakeCategoryRepository(

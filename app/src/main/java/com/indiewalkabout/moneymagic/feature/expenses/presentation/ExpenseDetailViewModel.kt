@@ -52,6 +52,8 @@ data class ExpenseDetailUiState(
     val isSaved: Boolean = false,
     val isDeleting: Boolean = false,
     val showDeleteConfirmation: Boolean = false,
+    val showMissingFieldsDialog: Boolean = false,
+    val missingFieldErrors: List<ExpenseDetailError> = emptyList(),
     val isDeleted: Boolean = false,
 )
 
@@ -129,6 +131,8 @@ class ExpenseDetailViewModel @Inject constructor(
                                     isSaved = state.isSaved,
                                     isDeleting = state.isDeleting,
                                     showDeleteConfirmation = state.showDeleteConfirmation,
+                                    showMissingFieldsDialog = state.showMissingFieldsDialog,
+                                    missingFieldErrors = state.missingFieldErrors,
                                     isDeleted = state.isDeleted,
                                 )
                                 .withSaveEligibility()
@@ -217,17 +221,29 @@ class ExpenseDetailViewModel @Inject constructor(
         val validation = validateExpense(state.amount, state.categoryId)
         val dateTime = state.toInstantOrNull()
         if (validation.errors.isNotEmpty() || validation.amountMinor == null || dateTime == null) {
+            val fieldErrors = validation.errors.map { it.toError() } +
+                listOfNotNull(ExpenseDetailError.InvalidDateTime.takeIf { dateTime == null })
             _uiState.update {
                 it.copy(
                     canSave = false,
-                    errorMessage = validation.errors.firstOrNull()?.toError() ?: ExpenseDetailError.InvalidDateTime,
+                    errorMessage = fieldErrors.firstOrNull(),
+                    showMissingFieldsDialog = true,
+                    missingFieldErrors = fieldErrors.distinct(),
                     isSaved = false,
                 )
             }
             return
         }
 
-        _uiState.update { it.copy(isSaving = true, errorMessage = null, isSaved = false) }
+        _uiState.update {
+            it.copy(
+                isSaving = true,
+                errorMessage = null,
+                showMissingFieldsDialog = false,
+                missingFieldErrors = emptyList(),
+                isSaved = false,
+            )
+        }
         viewModelScope.launch {
             runCatching {
                 expenseRepository.save(
@@ -267,6 +283,10 @@ class ExpenseDetailViewModel @Inject constructor(
             return
         }
         _uiState.update { it.copy(showDeleteConfirmation = false) }
+    }
+
+    fun dismissMissingFieldsDialog() {
+        _uiState.update { it.copy(showMissingFieldsDialog = false) }
     }
 
     fun confirmDelete() {

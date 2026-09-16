@@ -8,6 +8,7 @@ import com.indiewalkabout.moneymagic.core.database.MoneyMagicDatabaseSeedCallbac
 import com.indiewalkabout.moneymagic.core.database.MoneyMagicDatabase
 import com.indiewalkabout.moneymagic.feature.expenses.data.local.PaymentMethodEntity
 import com.indiewalkabout.moneymagic.feature.budgets.data.repository.BudgetRepositoryImpl
+import com.indiewalkabout.moneymagic.feature.budgets.data.local.BudgetEntity
 import com.indiewalkabout.moneymagic.feature.expenses.data.repository.CategoryRepositoryImpl
 import com.indiewalkabout.moneymagic.feature.expenses.data.repository.ExpenseRepositoryImpl
 import com.indiewalkabout.moneymagic.feature.expenses.data.repository.PaymentMethodRepositoryImpl
@@ -110,6 +111,41 @@ class ExpenseRepositoryImplTest {
         repository.delete(savedId)
 
         assertEquals(null, repository.observeExpense(savedId).first())
+    }
+
+    @Test
+    fun deleteAllRemovesExpensesWithoutDeletingExpenseMetadata() = runTest {
+        database.categoryDao().upsert(testCategory())
+        database.budgetDao().upsert(
+            BudgetEntity(
+                name = "Monthly food",
+                amountMinor = 50_000,
+                currency = "EUR",
+                periodType = "Monthly",
+                customStartDate = null,
+                customEndDate = null,
+                categoryId = 1,
+                notificationThresholdPercent = 80,
+                enabled = true,
+            ),
+        )
+        database.paymentMethodDao().upsert(
+            PaymentMethodEntity(
+                id = 7,
+                name = "Card",
+                type = "Card",
+                archived = false,
+            )
+        )
+        repository.save(testExpense(paymentMethodId = 7))
+        repository.save(testExpense().copy(id = 0, name = "Second"))
+
+        repository.deleteAll()
+
+        assertTrue(repository.observeExpenses().first().isEmpty())
+        assertEquals(1, categoryRepository.observeCategories().first().size)
+        assertEquals(1, paymentMethodRepository.observePaymentMethods().first().size)
+        assertEquals(1, database.budgetDao().observeBudgets().first().size)
     }
 
     @Test

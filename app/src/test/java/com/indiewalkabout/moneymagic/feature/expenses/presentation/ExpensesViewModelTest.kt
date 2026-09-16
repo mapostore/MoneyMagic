@@ -141,6 +141,10 @@ private class FakeExpensesHistoryRepository(
         deletedIds += expenseId
         expensesFlow.value = expensesFlow.value.filterNot { it.id == expenseId }
     }
+
+    override suspend fun deleteAll() {
+        expensesFlow.value = emptyList()
+    }
 }
 
 private class FakeExpenseCategoryRepository : CategoryRepository {

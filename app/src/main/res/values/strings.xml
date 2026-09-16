@@ -69,6 +69,8 @@
     <string name="save">Save</string>
     <string name="saving">Saving</string>
     <string name="settings_title">Settings</string>
+    <string name="back">Back</string>
+    <string name="manage_spending_data">Spending data</string>
     <string name="export_data">Export data</string>
     <string name="export_expenses_excel">Export expenses Excel</string>
     <string name="share_expenses_excel">Share expenses Excel</string>
@@ -84,6 +86,13 @@
     <string name="update">Update</string>
     <string name="edit">Edit</string>
     <string name="delete">Delete</string>
+    <string name="expense_history_controls">Expense history</string>
+    <string name="delete_all_expenses">Delete all expenses</string>
+    <string name="delete_all_expenses_title">Delete all expense history?</string>
+    <string name="delete_all_expenses_message">This permanently removes every expense stored on this device. Categories, payment methods, and budgets are kept.</string>
+    <string name="type_yes_to_confirm">Type yes to confirm.</string>
+    <string name="confirmation">Confirmation</string>
+    <string name="delete_all_expenses_failed">Unable to delete expense history. Please try again.</string>
     <string name="remove_expense">Remove</string>
     <string name="remove_expense_title">Remove expense?</string>
     <string name="remove_expense_message">This expense will be removed from your local history.</string>
@@ -103,6 +112,8 @@
     <string name="choose_category">Choose a category.</string>
     <string name="enter_valid_amount">Enter a valid amount.</string>
     <string name="enter_valid_date_time">Enter a valid date and time.</string>
+    <string name="missing_expense_fields_title">Complete required fields</string>
+    <string name="missing_expense_fields_message">Before saving, check:</string>
     <string name="unable_save_expense">Unable to save expense. Please try again.</string>
     <string name="bottom_nav_dashboard">Dashboard</string>
     <string name="bottom_nav_expenses">Expenses</string>

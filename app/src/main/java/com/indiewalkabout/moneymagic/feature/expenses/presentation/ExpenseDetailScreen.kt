@@ -89,6 +89,7 @@ fun ExpenseDetailScreen(
         onDeleteRequest = viewModel::requestDeleteConfirmation,
         onDeleteConfirm = viewModel::confirmDelete,
         onDeleteDismiss = viewModel::dismissDeleteConfirmation,
+        onMissingFieldsDismiss = viewModel::dismissMissingFieldsDialog,
         onBack = onBack,
         modifier = modifier,
     )
@@ -110,6 +111,7 @@ private fun ExpenseDetailContent(
     onDeleteRequest: () -> Unit,
     onDeleteConfirm: () -> Unit,
     onDeleteDismiss: () -> Unit,
+    onMissingFieldsDismiss: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -132,6 +134,26 @@ private fun ExpenseDetailContent(
                     enabled = !uiState.isDeleting,
                 ) {
                     Text(stringResource(R.string.cancel))
+                }
+            },
+        )
+    }
+
+    if (uiState.showMissingFieldsDialog) {
+        AlertDialog(
+            onDismissRequest = onMissingFieldsDismiss,
+            title = { Text(stringResource(R.string.missing_expense_fields_title)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(stringResource(R.string.missing_expense_fields_message))
+                    uiState.missingFieldErrors.forEach { error ->
+                        Text("- ${error.label()}")
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = onMissingFieldsDismiss) {
+                    Text(stringResource(R.string.ok))
                 }
             },
         )
@@ -270,6 +292,7 @@ private fun ExpenseDetailContent(
                 onNotesChanged = onNotesChanged,
                 enabled = uiState.isEditable(),
                 fieldModifier = Modifier.bringIntoViewOnFocus(),
+                initiallyExpanded = true,
             )
             Spacer(modifier = Modifier.height(96.dp))
         }
@@ -312,7 +335,7 @@ private fun ExpenseDetailActions(
         ) {
             Button(
                 onClick = onSave,
-                enabled = uiState.canSave,
+                enabled = uiState.isEditable(),
                 modifier = Modifier.weight(1f),
             ) {
                 Text(if (uiState.isSaving) stringResource(R.string.saving) else stringResource(R.string.save))
@@ -377,6 +400,7 @@ private fun ExpenseDetailScreenPreview() {
             onDeleteRequest = {},
             onDeleteConfirm = {},
             onDeleteDismiss = {},
+            onMissingFieldsDismiss = {},
             onBack = {},
         )
     }

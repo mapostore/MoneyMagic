@@ -34,8 +34,9 @@ fun ExpandableOcrField(
     enabled: Boolean,
     modifier: Modifier = Modifier,
     fieldModifier: Modifier = Modifier,
+    initiallyExpanded: Boolean = false,
 ) {
-    var expanded by remember { mutableStateOf(false) }
+    var expanded by remember(initiallyExpanded) { mutableStateOf(initiallyExpanded) }
     OutlinedCard(modifier = modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier

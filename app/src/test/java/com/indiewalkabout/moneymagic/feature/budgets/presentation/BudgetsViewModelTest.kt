@@ -240,4 +240,6 @@ private class FakeBudgetExpenseRepository(
     override suspend fun save(expense: Expense): Long = error("Not used")
 
     override suspend fun delete(expenseId: Long) = Unit
+
+    override suspend fun deleteAll() = Unit
 }
