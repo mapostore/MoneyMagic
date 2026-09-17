@@ -8,6 +8,7 @@ import com.indiewalkabout.moneymagic.core.database.MoneyMagicDatabaseSeedCallbac
 import com.indiewalkabout.moneymagic.core.database.MoneyMagicDatabase
 import com.indiewalkabout.moneymagic.feature.expenses.data.local.PaymentMethodEntity
 import com.indiewalkabout.moneymagic.feature.budgets.data.repository.BudgetRepositoryImpl
+import com.indiewalkabout.moneymagic.feature.budgets.data.local.BudgetEntity
 import com.indiewalkabout.moneymagic.feature.expenses.data.repository.CategoryRepositoryImpl
 import com.indiewalkabout.moneymagic.feature.expenses.data.repository.ExpenseRepositoryImpl
 import com.indiewalkabout.moneymagic.feature.expenses.data.repository.PaymentMethodRepositoryImpl
@@ -63,6 +64,7 @@ class ExpenseRepositoryImplTest {
                 categoryId = 1,
                 merchant = "Bakery",
                 paymentMethodId = null,
+                description = "",
                 notes = "",
                 tags = listOf("food"),
                 createdAt = now,
@@ -78,7 +80,76 @@ class ExpenseRepositoryImplTest {
     }
 
     @Test
-    fun seededFreshDatabaseSavesExpenseWithDefaultFoodCategory() = runTest {
+    fun observesExpenseById() = runTest {
+        database.categoryDao().upsert(testCategory())
+        val savedId = repository.save(testExpense())
+
+        val expense = repository.observeExpense(savedId).first()
+
+        assertEquals(savedId, expense?.id)
+        assertEquals("Bakery", expense?.name)
+    }
+
+    @Test
+    fun saveWithExistingIdUpdatesExpense() = runTest {
+        database.categoryDao().upsert(testCategory())
+        val savedId = repository.save(testExpense())
+
+        repository.save(testExpense(id = savedId).copy(name = "Updated", amountMinor = 2500))
+
+        val expense = repository.observeExpense(savedId).first()
+        assertEquals("Updated", expense?.name)
+        assertEquals(2500L, expense?.amountMinor)
+        assertEquals(1, repository.observeExpenses().first().size)
+    }
+
+    @Test
+    fun deleteRemovesExpenseAndSingleObserverEmitsNull() = runTest {
+        database.categoryDao().upsert(testCategory())
+        val savedId = repository.save(testExpense())
+
+        repository.delete(savedId)
+
+        assertEquals(null, repository.observeExpense(savedId).first())
+    }
+
+    @Test
+    fun deleteAllRemovesExpensesWithoutDeletingExpenseMetadata() = runTest {
+        database.categoryDao().upsert(testCategory())
+        database.budgetDao().upsert(
+            BudgetEntity(
+                name = "Monthly food",
+                amountMinor = 50_000,
+                currency = "EUR",
+                periodType = "Monthly",
+                customStartDate = null,
+                customEndDate = null,
+                categoryId = 1,
+                notificationThresholdPercent = 80,
+                enabled = true,
+            ),
+        )
+        database.paymentMethodDao().upsert(
+            PaymentMethodEntity(
+                id = 7,
+                name = "Card",
+                type = "Card",
+                archived = false,
+            )
+        )
+        repository.save(testExpense(paymentMethodId = 7))
+        repository.save(testExpense().copy(id = 0, name = "Second"))
+
+        repository.deleteAll()
+
+        assertTrue(repository.observeExpenses().first().isEmpty())
+        assertEquals(1, categoryRepository.observeCategories().first().size)
+        assertEquals(1, paymentMethodRepository.observePaymentMethods().first().size)
+        assertEquals(1, database.budgetDao().observeBudgets().first().size)
+    }
+
+    @Test
+    fun seededFreshDatabaseSavesExpenseWithDefaultCategory() = runTest {
         val seededDatabase = Room.inMemoryDatabaseBuilder(
             ApplicationProvider.getApplicationContext(),
             MoneyMagicDatabase::class.java,
@@ -89,16 +160,16 @@ class ExpenseRepositoryImplTest {
         val seededBudgetRepository = BudgetRepositoryImpl(seededDatabase.budgetDao())
 
         try {
-            seededRepository.save(testExpense(categoryId = 1))
+            seededRepository.save(testExpense(categoryId = 1001))
 
             val expenses = seededRepository.observeExpenses().first()
             val budgets = seededBudgetRepository.observeBudgets().first()
             val categories = seededDatabase.categoryDao().observeCategories(includeArchived = true).first()
             assertTrue(expenses.any { it.merchant == "Bakery" })
-            assertTrue(expenses.any { it.merchant == "Fresh Market" })
-            assertTrue(budgets.any { it.name == "Monthly spending cap" })
-            assertTrue(budgets.any { it.name == "Food monthly" })
-            assertEquals("Food", categories.first { it.id == 1L }.name)
+            assertTrue(expenses.none { it.tags.contains("demo") })
+            assertTrue(budgets.isEmpty())
+            assertEquals("ABBONAMENTI", categories.first { it.id == 1001L }.name)
+            assertEquals("INTERESSI", categories.first { it.id == 1039L }.name)
         } finally {
             seededDatabase.close()
         }
@@ -216,11 +287,13 @@ class ExpenseRepositoryImplTest {
     )
 
     private fun testExpense(
+        id: Long = 0,
         categoryId: Long = 1,
         paymentMethodId: Long? = null,
     ): Expense {
         val now = Instant.parse("2026-06-22T10:00:00Z")
         return Expense(
+            id = id,
             name = "Bakery",
             amountMinor = 1250,
             currency = "EUR",
@@ -228,6 +301,7 @@ class ExpenseRepositoryImplTest {
             categoryId = categoryId,
             merchant = "Bakery",
             paymentMethodId = paymentMethodId,
+            description = "",
             notes = "",
             tags = listOf("food"),
             createdAt = now,

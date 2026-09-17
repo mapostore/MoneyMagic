@@ -9,7 +9,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -18,13 +17,17 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.indiewalkabout.moneymagic.R
+import com.indiewalkabout.moneymagic.feature.budgets.domain.model.Budget
 import com.indiewalkabout.moneymagic.feature.budgets.domain.model.BudgetPeriod
 import com.indiewalkabout.moneymagic.feature.budgets.domain.model.BudgetProgress
-import java.util.Locale
+import com.indiewalkabout.moneymagic.feature.budgets.presentation.components.BudgetProgressRow
+import com.indiewalkabout.moneymagic.feature.budgets.presentation.components.BudgetScopeDropdown
+import com.indiewalkabout.moneymagic.feature.expenses.domain.model.Category
 
 @Composable
 fun BudgetsScreen(
@@ -33,6 +36,27 @@ fun BudgetsScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
+    BudgetsContent(
+        uiState = uiState,
+        onNameChanged = viewModel::onNameChanged,
+        onAmountChanged = viewModel::onAmountChanged,
+        onCategorySelected = viewModel::onCategorySelected,
+        onThresholdChanged = viewModel::onThresholdChanged,
+        onSaveBudget = viewModel::saveBudget,
+        modifier = modifier,
+    )
+}
+
+@Composable
+private fun BudgetsContent(
+    uiState: BudgetsUiState,
+    onNameChanged: (String) -> Unit,
+    onAmountChanged: (String) -> Unit,
+    onCategorySelected: (Long?) -> Unit,
+    onThresholdChanged: (String) -> Unit,
+    onSaveBudget: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -45,7 +69,7 @@ fun BudgetsScreen(
         )
         OutlinedTextField(
             value = uiState.name,
-            onValueChange = viewModel::onNameChanged,
+            onValueChange = onNameChanged,
             modifier = Modifier.fillMaxWidth(),
             enabled = !uiState.isSaving,
             label = { Text(stringResource(R.string.budget_name)) },
@@ -53,16 +77,22 @@ fun BudgetsScreen(
         )
         OutlinedTextField(
             value = uiState.amount,
-            onValueChange = viewModel::onAmountChanged,
+            onValueChange = onAmountChanged,
             modifier = Modifier.fillMaxWidth(),
             enabled = !uiState.isSaving,
             label = { Text(stringResource(R.string.monthly_limit)) },
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
         )
+        BudgetScopeDropdown(
+            categories = uiState.categories,
+            selectedCategoryId = uiState.selectedCategoryId,
+            onCategorySelected = onCategorySelected,
+            enabled = !uiState.isSaving,
+        )
         OutlinedTextField(
             value = uiState.thresholdPercent,
-            onValueChange = viewModel::onThresholdChanged,
+            onValueChange = onThresholdChanged,
             modifier = Modifier.fillMaxWidth(),
             enabled = !uiState.isSaving,
             label = { Text(stringResource(R.string.alert_threshold_percent)) },
@@ -73,7 +103,7 @@ fun BudgetsScreen(
             },
         )
         Button(
-            onClick = viewModel::saveBudget,
+            onClick = onSaveBudget,
             enabled = uiState.canSave && !uiState.isSaving,
             modifier = Modifier.fillMaxWidth(),
         ) {
@@ -105,51 +135,44 @@ fun BudgetsScreen(
                     items = uiState.budgetProgress,
                     key = { progress -> progress.budget.id },
                 ) { progress ->
-                    BudgetProgressRow(progress = progress)
+                    BudgetProgressRow(progress = progress, categories = uiState.categories)
                 }
             }
         }
     }
 }
 
+@Preview(showBackground = true)
 @Composable
-private fun BudgetProgressRow(progress: BudgetProgress) {
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(
-            text = "${progress.budget.name} - ${progress.budget.period.label()}",
-            style = MaterialTheme.typography.titleSmall,
-        )
-        LinearProgressIndicator(
-            progress = { progress.percentUsed.coerceIn(0, 100) / 100f },
-            modifier = Modifier.fillMaxWidth(),
-        )
-        Text(
-            text = stringResource(
-                R.string.spent_of,
-                formatAmount(progress.spentMinor, progress.budget.currency),
-                formatAmount(progress.budget.amountMinor, progress.budget.currency),
+private fun BudgetsScreenPreview() {
+    val categories = listOf(Category(1, "SPESA", 0xFF00AA00, "spesa", 0, false))
+    MaterialTheme {
+        BudgetsContent(
+            uiState = BudgetsUiState(
+                name = "Monthly groceries",
+                amount = "300.00",
+                selectedCategoryId = 1,
+                categories = categories,
+                budgetProgress = listOf(
+                    BudgetProgress(
+                        budget = Budget(1, "Monthly groceries", 30000, "EUR", BudgetPeriod.Monthly, 1, 80, true),
+                        spentMinor = 18000,
+                        remainingMinor = 12000,
+                        percentUsed = 60,
+                        isNearTarget = false,
+                        isOverBudget = false,
+                    ),
+                ),
+                canSave = true,
             ),
-            style = MaterialTheme.typography.bodyMedium,
-        )
-        Text(
-            text = stringResource(
-                R.string.budget_progress_status,
-                progress.percentUsed,
-                formatAmount(progress.remainingMinor, progress.budget.currency),
-            ),
-            style = MaterialTheme.typography.bodySmall,
+            onNameChanged = {},
+            onAmountChanged = {},
+            onCategorySelected = {},
+            onThresholdChanged = {},
+            onSaveBudget = {},
         )
     }
 }
-
-@Composable
-private fun BudgetPeriod.label(): String =
-    when (this) {
-        BudgetPeriod.Weekly -> stringResource(R.string.budget_period_weekly)
-        BudgetPeriod.Monthly -> stringResource(R.string.budget_period_monthly)
-        BudgetPeriod.Yearly -> stringResource(R.string.budget_period_yearly)
-        is BudgetPeriod.Custom -> stringResource(R.string.budget_period_custom)
-    }
 
 @Composable
 private fun BudgetError.label(): String =
@@ -157,8 +180,3 @@ private fun BudgetError.label(): String =
         BudgetError.InvalidForm -> stringResource(R.string.budget_invalid_form)
         BudgetError.SaveFailed -> stringResource(R.string.unable_save_budget)
     }
-
-private fun formatAmount(amountMinor: Long, currency: String): String {
-    val amount = amountMinor / 100.0
-    return "%s %.2f".format(Locale.getDefault(), currency, amount)
-}

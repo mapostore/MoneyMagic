@@ -13,9 +13,16 @@ class ExpenseRepositoryImpl @Inject constructor(
     override fun observeExpenses(): Flow<List<Expense>> =
         expenseDao.observeExpenses().map { expenses -> expenses.map { it.toDomain() } }
 
+    override fun observeExpense(expenseId: Long): Flow<Expense?> =
+        expenseDao.observeExpense(expenseId).map { expense -> expense?.toDomain() }
+
     override suspend fun save(expense: Expense): Long = expenseDao.upsert(expense.toEntity())
 
     override suspend fun delete(expenseId: Long) {
         expenseDao.delete(expenseId)
+    }
+
+    override suspend fun deleteAll() {
+        expenseDao.deleteAll()
     }
 }

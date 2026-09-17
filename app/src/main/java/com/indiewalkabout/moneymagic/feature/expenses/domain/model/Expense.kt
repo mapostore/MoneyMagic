@@ -11,6 +11,7 @@ data class Expense(
     val categoryId: Long,
     val merchant: String,
     val paymentMethodId: Long?,
+    val description: String,
     val notes: String,
     val tags: List<String>,
     val createdAt: Instant,

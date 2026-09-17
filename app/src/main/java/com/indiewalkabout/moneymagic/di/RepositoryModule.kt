@@ -2,6 +2,8 @@ package com.indiewalkabout.moneymagic.di
 
 import com.indiewalkabout.moneymagic.feature.budgets.data.repository.BudgetAlertRepositoryImpl
 import com.indiewalkabout.moneymagic.feature.budgets.data.repository.BudgetRepositoryImpl
+import com.indiewalkabout.moneymagic.feature.capture.data.LocalReceiptTextRecognizer
+import com.indiewalkabout.moneymagic.feature.capture.domain.repository.ReceiptTextRecognizer
 import com.indiewalkabout.moneymagic.feature.expenses.data.repository.CategoryRepositoryImpl
 import com.indiewalkabout.moneymagic.feature.expenses.data.repository.ExpenseRepositoryImpl
 import com.indiewalkabout.moneymagic.feature.expenses.data.repository.PaymentMethodRepositoryImpl
@@ -42,4 +44,9 @@ abstract class RepositoryModule {
     abstract fun bindBudgetAlertRepository(
         repository: BudgetAlertRepositoryImpl,
     ): BudgetAlertRepository
+
+    @Binds
+    abstract fun bindReceiptTextRecognizer(
+        recognizer: LocalReceiptTextRecognizer,
+    ): ReceiptTextRecognizer
 }

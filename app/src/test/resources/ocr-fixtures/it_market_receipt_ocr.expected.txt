@@ -1,0 +1,4 @@
+documentType=Receipt
+merchant=CONAD CITY
+amount=15.77
+date=2026-07-13

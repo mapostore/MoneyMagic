@@ -17,6 +17,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -96,6 +97,7 @@ class DashboardViewModelTest {
             categoryId = 1,
             merchant = "Merchant",
             paymentMethodId = null,
+            description = "",
             notes = "",
             tags = emptyList(),
             createdAt = dateTime,
@@ -131,9 +133,14 @@ private class FakeDashboardExpenseRepository(
 
     override fun observeExpenses(): Flow<List<Expense>> = expensesFlow
 
+    override fun observeExpense(expenseId: Long): Flow<Expense?> =
+        expensesFlow.map { expenses -> expenses.firstOrNull { it.id == expenseId } }
+
     override suspend fun save(expense: Expense): Long = error("Not used")
 
     override suspend fun delete(expenseId: Long) = Unit
+
+    override suspend fun deleteAll() = Unit
 }
 
 private class FakeDashboardBudgetRepository(

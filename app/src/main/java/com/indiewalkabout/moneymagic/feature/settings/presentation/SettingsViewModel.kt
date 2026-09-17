@@ -2,13 +2,17 @@ package com.indiewalkabout.moneymagic.feature.settings.presentation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.indiewalkabout.moneymagic.feature.expenses.domain.model.Expense
 import com.indiewalkabout.moneymagic.feature.expenses.domain.model.Category
 import com.indiewalkabout.moneymagic.feature.expenses.domain.model.PaymentMethod
 import com.indiewalkabout.moneymagic.feature.expenses.domain.model.PaymentMethodType
 import com.indiewalkabout.moneymagic.feature.expenses.domain.repository.CategoryRepository
+import com.indiewalkabout.moneymagic.feature.expenses.domain.repository.ExpenseRepository
 import com.indiewalkabout.moneymagic.feature.expenses.domain.repository.PaymentMethodRepository
+import com.indiewalkabout.moneymagic.feature.settings.domain.usecase.ExportExpensesXlsxUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -21,17 +25,27 @@ import kotlinx.coroutines.launch
 data class SettingsUiState(
     val categories: List<Category> = emptyList(),
     val paymentMethods: List<PaymentMethod> = emptyList(),
+    val expenses: List<Expense> = emptyList(),
     val categoryName: String = "",
     val editingCategoryId: Long? = null,
     val paymentMethodName: String = "",
     val paymentMethodType: PaymentMethodType = PaymentMethodType.Card,
     val editingPaymentMethodId: Long? = null,
-)
+    val showDeleteAllConfirmation: Boolean = false,
+    val deleteAllConfirmationText: String = "",
+    val isDeletingAllExpenses: Boolean = false,
+    val deleteAllExpensesFailed: Boolean = false,
+) {
+    val canDeleteAllExpenses: Boolean
+        get() = deleteAllConfirmationText.trim() == "yes" && !isDeletingAllExpenses
+}
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val categoryRepository: CategoryRepository,
     private val paymentMethodRepository: PaymentMethodRepository,
+    private val expenseRepository: ExpenseRepository,
+    private val exportExpensesXlsx: ExportExpensesXlsxUseCase,
 ) : ViewModel() {
     private val formState = MutableStateFlow(SettingsUiState())
 
@@ -40,8 +54,13 @@ class SettingsViewModel @Inject constructor(
             formState.asStateFlow(),
             categoryRepository.observeCategories(),
             paymentMethodRepository.observePaymentMethods(),
-        ) { form, categories, paymentMethods ->
-            form.copy(categories = categories, paymentMethods = paymentMethods)
+            expenseRepository.observeExpenses(),
+        ) { form, categories, paymentMethods, expenses ->
+            form.copy(
+                categories = categories,
+                paymentMethods = paymentMethods,
+                expenses = expenses,
+            )
         }.stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
@@ -155,4 +174,66 @@ class SettingsViewModel @Inject constructor(
             }
         }
     }
+
+    fun showDeleteAllConfirmation() {
+        formState.update {
+            it.copy(
+                showDeleteAllConfirmation = true,
+                deleteAllConfirmationText = "",
+                deleteAllExpensesFailed = false,
+            )
+        }
+    }
+
+    fun dismissDeleteAllConfirmation() {
+        formState.update {
+            it.copy(
+                showDeleteAllConfirmation = false,
+                deleteAllConfirmationText = "",
+                deleteAllExpensesFailed = false,
+            )
+        }
+    }
+
+    fun onDeleteAllConfirmationChanged(text: String) {
+        formState.update {
+            it.copy(
+                deleteAllConfirmationText = text,
+                deleteAllExpensesFailed = false,
+            )
+        }
+    }
+
+    fun deleteAllExpenses() {
+        if (!formState.value.canDeleteAllExpenses) {
+            return
+        }
+
+        viewModelScope.launch {
+            formState.update {
+                it.copy(
+                    isDeletingAllExpenses = true,
+                    deleteAllExpensesFailed = false,
+                )
+            }
+            try {
+                expenseRepository.deleteAll()
+                formState.update {
+                    it.copy(
+                        showDeleteAllConfirmation = false,
+                        deleteAllConfirmationText = "",
+                    )
+                }
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (_: Exception) {
+                formState.update { it.copy(deleteAllExpensesFailed = true) }
+            } finally {
+                formState.update { it.copy(isDeletingAllExpenses = false) }
+            }
+        }
+    }
+
+    fun createExpenseExport(): ByteArray =
+        exportExpensesXlsx(uiState.value.expenses, uiState.value.categories)
 }

@@ -72,7 +72,8 @@ class AddExpenseViewModelTest {
         viewModel.onCategorySelected(1)
         viewModel.onPaymentMethodSelected(7)
         viewModel.onMerchantChanged("Corner Market")
-        viewModel.onNotesChanged("Lunch")
+        viewModel.onDescriptionChanged("Lunch")
+        viewModel.onNotesChanged("OCR text")
         viewModel.save()
         advanceUntilIdle()
 
@@ -82,7 +83,8 @@ class AddExpenseViewModelTest {
         assertEquals(1234, repository.savedExpenses.single().amountMinor)
         assertEquals(7L, repository.savedExpenses.single().paymentMethodId)
         assertEquals("Corner Market", repository.savedExpenses.single().merchant)
-        assertEquals("Lunch", repository.savedExpenses.single().notes)
+        assertEquals("Lunch", repository.savedExpenses.single().description)
+        assertEquals("OCR text", repository.savedExpenses.single().notes)
     }
 
     @Test
@@ -99,10 +101,114 @@ class AddExpenseViewModelTest {
         assertEquals(1, repository.savedCount)
     }
 
-    private fun testViewModel(repository: ExpenseRepository): AddExpenseViewModel =
+    @Test
+    fun applyDraftPrefillsExpenseForm() = runTest {
+        val viewModel = testViewModel(FakeExpenseRepository())
+
+        viewModel.applyDraft(
+            ExpenseDraftInput(
+                name = "Fresh Market",
+                amount = "12.34",
+                date = "2026-06-24",
+                merchant = "Fresh Market",
+                description = "Groceries for dinner",
+                notes = "Recognized from receipt",
+            ),
+        )
+
+        assertEquals("Fresh Market", viewModel.uiState.value.name)
+        assertEquals("12.34", viewModel.uiState.value.amount)
+        assertEquals("2026-06-24", viewModel.uiState.value.date)
+        assertEquals("Fresh Market", viewModel.uiState.value.merchant)
+        assertEquals("Groceries for dinner", viewModel.uiState.value.description)
+        assertEquals("Recognized from receipt", viewModel.uiState.value.notes)
+    }
+
+    @Test
+    fun applyDraftWithoutDateDescriptionUsesCurrentDefaultsInsteadOfPreviousScanValues() = runTest {
+        val viewModel = testViewModel(FakeExpenseRepository())
+
+        viewModel.applyDraft(
+            ExpenseDraftInput(
+                name = "First scan",
+                amount = "12.34",
+                date = "2026-06-01",
+                merchant = "First market",
+                description = "Old scan description",
+                notes = "Old OCR",
+            ),
+        )
+        viewModel.onTimeChanged("09:15")
+
+        viewModel.applyDraft(
+            ExpenseDraftInput(
+                name = "Second scan",
+                amount = "45.67",
+                merchant = "Second market",
+                notes = "New OCR",
+            ),
+        )
+
+        assertEquals("Second scan", viewModel.uiState.value.name)
+        assertEquals("45.67", viewModel.uiState.value.amount)
+        assertEquals("2026-06-24", viewModel.uiState.value.date)
+        assertEquals("12:30", viewModel.uiState.value.time)
+        assertEquals("Second market", viewModel.uiState.value.merchant)
+        assertEquals("", viewModel.uiState.value.description)
+        assertEquals("New OCR", viewModel.uiState.value.notes)
+    }
+
+    @Test
+    fun applyDraftSuggestsCategoryFromScannedTextWhenNoValidCategoryExists() = runTest {
+        val viewModel = testViewModel(
+            repository = FakeExpenseRepository(),
+            categoryRepository = FakeCategoryRepository(
+                categories = listOf(
+                    testCategory(id = 1, name = "Food"),
+                    testCategory(id = 2, name = "BENZINA"),
+                ),
+            ),
+        )
+        advanceUntilIdle()
+
+        viewModel.applyDraft(
+            ExpenseDraftInput(
+                name = "Q8",
+                merchant = "Q8",
+                description = "Receipt for refuel",
+                notes = "benzina verde self service",
+            ),
+        )
+
+        assertEquals(2L, viewModel.uiState.value.categoryId)
+    }
+
+    @Test
+    fun suggestedCategoryDoesNotOverrideCategorySelectedByUser() = runTest {
+        val viewModel = testViewModel(
+            repository = FakeExpenseRepository(),
+            categoryRepository = FakeCategoryRepository(
+                categories = listOf(
+                    testCategory(id = 1, name = "Food"),
+                    testCategory(id = 2, name = "BENZINA"),
+                ),
+            ),
+        )
+        advanceUntilIdle()
+
+        viewModel.onCategorySelected(1)
+        viewModel.onDescriptionChanged("benzina verde self service")
+
+        assertEquals(1L, viewModel.uiState.value.categoryId)
+    }
+
+    private fun testViewModel(
+        repository: ExpenseRepository,
+        categoryRepository: CategoryRepository = FakeCategoryRepository(),
+    ): AddExpenseViewModel =
         AddExpenseViewModel(
             expenseRepository = repository,
-            categoryRepository = FakeCategoryRepository(),
+            categoryRepository = categoryRepository,
             paymentMethodRepository = FakePaymentMethodRepository(),
             validateExpense = ValidateExpenseUseCase(),
             clock = clock,
@@ -117,6 +223,8 @@ private class FakeExpenseRepository(
 
     override fun observeExpenses(): Flow<List<Expense>> = emptyFlow()
 
+    override fun observeExpense(expenseId: Long): Flow<Expense?> = emptyFlow()
+
     override suspend fun save(expense: Expense): Long {
         if (saveDelayMillis > 0) {
             delay(saveDelayMillis)
@@ -127,27 +235,30 @@ private class FakeExpenseRepository(
     }
 
     override suspend fun delete(expenseId: Long) = Unit
+
+    override suspend fun deleteAll() = Unit
 }
 
-private class FakeCategoryRepository : CategoryRepository {
+private class FakeCategoryRepository(
+    private val categories: List<Category> = listOf(testCategory(id = 1, name = "Food")),
+) : CategoryRepository {
     override fun observeCategories(includeArchived: Boolean): Flow<List<Category>> =
-        flowOf(
-            listOf(
-                Category(
-                    id = 1,
-                    name = "Food",
-                    color = 0xFF00AA00,
-                    iconKey = "food",
-                    sortOrder = 0,
-                    archived = false,
-                ),
-            ),
-        )
+        flowOf(categories)
 
     override suspend fun save(category: Category): Long = error("Not used")
 
     override suspend fun archive(categoryId: Long) = error("Not used")
 }
+
+private fun testCategory(id: Long, name: String): Category =
+    Category(
+        id = id,
+        name = name,
+        color = 0xFF00AA00,
+        iconKey = name.lowercase(),
+        sortOrder = id.toInt(),
+        archived = false,
+    )
 
 private class FakePaymentMethodRepository : PaymentMethodRepository {
     override fun observePaymentMethods(includeArchived: Boolean): Flow<List<PaymentMethod>> =

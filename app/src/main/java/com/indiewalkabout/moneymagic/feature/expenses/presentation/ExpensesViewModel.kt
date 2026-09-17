@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
 enum class ExpensePeriodFilter {
     ALL,
@@ -50,7 +51,7 @@ data class ExpenseListItem(
 
 @HiltViewModel
 class ExpensesViewModel @Inject constructor(
-    expenseRepository: ExpenseRepository,
+    private val expenseRepository: ExpenseRepository,
     categoryRepository: CategoryRepository,
     paymentMethodRepository: PaymentMethodRepository,
     private val clock: Clock,
@@ -87,6 +88,12 @@ class ExpensesViewModel @Inject constructor(
 
     fun selectSortOption(sortOption: ExpenseSortOption) {
         selectedSortOption.update { sortOption }
+    }
+
+    fun deleteExpense(expenseId: Long) {
+        viewModelScope.launch {
+            expenseRepository.delete(expenseId)
+        }
     }
 }
 

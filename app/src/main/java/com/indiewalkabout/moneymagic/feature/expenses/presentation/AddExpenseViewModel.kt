@@ -17,6 +17,7 @@ import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
 import java.time.format.DateTimeParseException
+import java.util.Locale
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -32,6 +33,7 @@ data class AddExpenseUiState(
     val date: String = "",
     val time: String = "",
     val merchant: String = "",
+    val description: String = "",
     val notes: String = "",
     val categories: List<Category> = emptyList(),
     val paymentMethods: List<PaymentMethod> = emptyList(),
@@ -39,6 +41,15 @@ data class AddExpenseUiState(
     val errorMessage: AddExpenseError? = null,
     val isSaving: Boolean = false,
     val isSaved: Boolean = false,
+)
+
+data class ExpenseDraftInput(
+    val name: String? = null,
+    val amount: String? = null,
+    val date: String? = null,
+    val merchant: String? = null,
+    val description: String? = null,
+    val notes: String? = null,
 )
 
 enum class AddExpenseError {
@@ -60,6 +71,7 @@ class AddExpenseViewModel @Inject constructor(
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(AddExpenseUiState())
     val uiState: StateFlow<AddExpenseUiState> = _uiState.asStateFlow()
+    private var categorySelectedByUser = false
 
     init {
         val now = LocalDate.now(clock)
@@ -70,7 +82,10 @@ class AddExpenseViewModel @Inject constructor(
         viewModelScope.launch {
             categoryRepository.observeCategories().collect { categories ->
                 _uiState.update { state ->
-                    state.copy(categories = categories).withSaveEligibility()
+                    state
+                        .copy(categories = categories)
+                        .withSuggestedCategoryIfNeeded()
+                        .withSaveEligibility()
                 }
             }
         }
@@ -92,10 +107,12 @@ class AddExpenseViewModel @Inject constructor(
     fun onNameChanged(name: String) {
         _uiState.update { state ->
             state.copy(name = name, isSaved = false)
+                .withSuggestedCategoryIfNeeded()
         }
     }
 
     fun onCategorySelected(categoryId: Long?) {
+        categorySelectedByUser = true
         _uiState.update { state ->
             state.copy(categoryId = categoryId, isSaved = false).withSaveEligibility()
         }
@@ -122,12 +139,41 @@ class AddExpenseViewModel @Inject constructor(
     fun onMerchantChanged(merchant: String) {
         _uiState.update { state ->
             state.copy(merchant = merchant, isSaved = false)
+                .withSuggestedCategoryIfNeeded()
+        }
+    }
+
+    fun onDescriptionChanged(description: String) {
+        _uiState.update { state ->
+            state.copy(description = description, isSaved = false)
+                .withSuggestedCategoryIfNeeded()
         }
     }
 
     fun onNotesChanged(notes: String) {
         _uiState.update { state ->
             state.copy(notes = notes, isSaved = false)
+                .withSuggestedCategoryIfNeeded()
+        }
+    }
+
+    fun applyDraft(draft: ExpenseDraftInput) {
+        categorySelectedByUser = false
+        val now = LocalDate.now(clock).toString()
+        val currentTime = LocalTime.now(clock).withSecond(0).withNano(0).toString()
+        _uiState.update { state ->
+            state.copy(
+                name = draft.name.orEmpty(),
+                amount = draft.amount.orEmpty(),
+                categoryId = null,
+                date = draft.date?.takeIf { it.isNotBlank() } ?: now,
+                time = currentTime,
+                merchant = draft.merchant.orEmpty(),
+                description = draft.description.orEmpty(),
+                notes = draft.notes.orEmpty(),
+                isSaved = false,
+                errorMessage = null,
+            ).withSuggestedCategoryIfNeeded().withSaveEligibility()
         }
     }
 
@@ -167,6 +213,7 @@ class AddExpenseViewModel @Inject constructor(
                         categoryId = requireNotNull(state.categoryId),
                         merchant = state.merchant.trim(),
                         paymentMethodId = state.paymentMethodId,
+                        description = state.description.trim(),
                         notes = state.notes.trim(),
                         tags = emptyList(),
                         createdAt = now,
@@ -196,7 +243,46 @@ class AddExpenseViewModel @Inject constructor(
             errorMessage = null,
         )
     }
+
+    private fun AddExpenseUiState.withSuggestedCategoryIfNeeded(): AddExpenseUiState {
+        if (categories.isEmpty() || categorySelectedByUser || categoryId != null && categories.any { it.id == categoryId }) {
+            return this
+        }
+        val suggestedCategoryId = suggestCategoryId(
+            categories = categories,
+            text = listOf(name, merchant, description, notes).joinToString(" "),
+        ) ?: return this
+        return copy(categoryId = suggestedCategoryId)
+    }
 }
+
+private fun suggestCategoryId(categories: List<Category>, text: String): Long? {
+    val normalizedText = text.normalizedCategoryText()
+    if (normalizedText.isBlank()) return null
+
+    return categories
+        .mapNotNull { category ->
+            val normalizedName = category.name.normalizedCategoryText()
+            if (normalizedName.isBlank()) {
+                null
+            } else {
+                val score = when {
+                    normalizedText.contains(normalizedName) -> 100 + normalizedName.length
+                    normalizedName.split(' ').filter { it.length >= 4 }.any { normalizedText.contains(it) } -> 50
+                    else -> 0
+                }
+                score.takeIf { it > 0 }?.let { it to category.id }
+            }
+        }
+        .maxByOrNull { it.first }
+        ?.second
+}
+
+private fun String.normalizedCategoryText(): String =
+    lowercase(Locale.ROOT)
+        .replace('_', ' ')
+        .replace(Regex("[^a-z0-9àèéìòù]+"), " ")
+        .trim()
 
 private fun AddExpenseUiState.toInstantOrNull(): Instant? =
     try {

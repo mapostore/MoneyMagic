@@ -1,0 +1,4 @@
+documentType=BillInvoice
+merchant=Cloud Utilities Ltd
+amount=87.20
+date=2026-07-31
